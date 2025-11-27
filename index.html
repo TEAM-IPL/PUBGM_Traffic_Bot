@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PUBGM Traffic Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <!-- PapaParse -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+    <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    }
+    .tab-active {
+      border-bottom: 2px solid #3b82f6;
+      color: #3b82f6;
+    }
+    .treemap-tile {
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .treemap-tile:hover {
+      opacity: 0.8;
+    }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // 국가-대륙 매핑
+    const countryToContinent = {
+      'USA': 'NORTH AMERICA', 'Canada': 'NORTH AMERICA', 'Mexico': 'NORTH AMERICA',
+      'Brazil': 'SOUTH AMERICA', 'Argentina': 'SOUTH AMERICA', 'Chile': 'SOUTH AMERICA',
+      'Germany': 'EUROPE', 'UK': 'EUROPE', 'France': 'EUROPE', 'Italy': 'EUROPE', 'Spain': 'EUROPE',
+      'China': 'ASIA', 'India': 'ASIA', 'Japan': 'ASIA', 'Korea': 'ASIA', 'South Korea': 'ASIA',
+      'South Africa': 'AFRICA', 'Egypt': 'AFRICA', 'Nigeria': 'AFRICA',
+      'Australia': 'OCEANIA', 'New Zealand': 'OCEANIA',
+      'Russia': 'RUSSIA & CIS'
+    };
+
+    const getContinent = (country) => countryToContinent[country] || 'OTHER';
+
+    // CSV 데이터 로드 함수
+    async function loadCSV(url) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        return new Promise((resolve, reject) => {
+          Papa.parse(text, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => resolve(results.data),
+            error: (error) => reject(error)
+          });
+        });
+      } catch (error) {
+        console.error(`Error loading ${url}:`, error);
+        return [];
+      }
+    }
+
+    // 메인 앱 컴포넌트
+    function App() {
+      const [activeTab, setActiveTab] = useState('heatmap');
+      const [selectedCountry, setSelectedCountry] = useState(null);
+      const [metricsData, setMetricsData] = useState([]);
+      const [newsData, setNewsData] = useState([]);
+      const [factsData, setFactsData] = useState([]);
+      const [mapData, setMapData] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [repoStatus, setRepoStatus] = useState('연결 중...');
+      const [baseDate, setBaseDate] = useState('');
+      const [threshold, setThreshold] = useState(5);
+      const [topN, setTopN] = useState(50);
+
+      // 데이터 로드
+      useEffect(() => {
+        const loadData = async () => {
+          setLoading(true);
+          setRepoStatus('데이터 로딩 중...');
+          
+          const baseUrl = 'https://raw.githubusercontent.com/SangwonJi/PUBGM_TRAFFIC/master/data/';
+          
+          try {
+            const [metrics, news, facts, map] = await Promise.all([
+              loadCSV(`${baseUrl}metrics.csv`),
+              loadCSV(`${baseUrl}news.csv`),
+              loadCSV(`${baseUrl}facts.csv`),
+              loadCSV(`${baseUrl}map.csv`)
+            ]);
+
+            setMetricsData(metrics);
+            setNewsData(news);
+            setFactsData(facts);
+            setMapData(map);
+            setRepoStatus('연결됨');
+            
+            // 기본 날짜 설정 (가장 최근 날짜)
+            if (metrics.length > 0) {
+              const dateCol = findColumn(Object.keys(metrics[0]), ['Date', 'date', '날짜']);
+              if (dateCol) {
+                const dates = metrics.map(m => m[dateCol]).filter(d => d).sort().reverse();
+                if (dates.length > 0) setBaseDate(dates[0]);
+              }
+            }
+          } catch (error) {
+            console.error('Data loading error:', error);
+            setRepoStatus('연결 실패');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        loadData();
+      }, []);
+
+      // 컬럼 찾기 헬퍼
+      const findColumn = (keys, possibleNames) => {
+        const lowerKeys = keys.map(k => k.toLowerCase());
+        for (const name of possibleNames) {
+          const lowerName = name.toLowerCase();
+          const idx = lowerKeys.indexOf(lowerName);
+          if (idx !== -1) return keys[idx];
+        }
+        return null;
+      };
+      
+      // 데이터 처리 및 변환
+      const processedData = React.useMemo(() => {
+        if (!metricsData.length) return null;
+
+        const firstRow = metricsData[0];
+        const allKeys = Object.keys(firstRow);
+        
+        const dateCol = findColumn(allKeys, ['Date', 'date', '날짜']);
+        const codeCol = findColumn(allKeys, ['code', 'Code', 'country_code']);
+        const nameCol = findColumn(allKeys, ['name', 'Name', 'Country', 'country', '국가']);
+        const continentCol = findColumn(allKeys, ['continent', 'Continent', '대륙']);
+        const valueCol = findColumn(allKeys, ['value', 'Value', 'Traffic', 'traffic', '트래픽', 'DAU', 'dau']);
+        const changePctCol = findColumn(allKeys, ['change_pct', 'Change_pct', 'change%', '변화율']);
+
+        if (!dateCol || !nameCol || !valueCol) return null;
+
+        // 국가별 데이터 그룹화
+        const countryMap = {};
+        
+        metricsData.forEach(row => {
+          const date = row[dateCol];
+          const name = row[nameCol]?.toString().trim();
+          const code = codeCol ? row[codeCol]?.toString().trim() : null;
+          const value = parseFloat(row[valueCol]) || 0;
+          const changePct = changePctCol ? parseFloat(row[changePctCol]) : null;
+          const continent = continentCol ? row[continentCol]?.toString().trim() : getContinent(name);
+
+          if (!name || !date) return;
+
+          if (!countryMap[name]) {
+            countryMap[name] = {
+              name,
+              code,
+              continent,
+              dates: [],
+              values: [],
+              changePcts: []
+            };
+          }
+
+          countryMap[name].dates.push(date);
+          countryMap[name].values.push(value);
+          countryMap[name].changePcts.push(changePct);
+        });
+
+        // 각 국가별로 날짜 정렬 및 change_pct 계산
+        const countries = Object.values(countryMap).map(country => {
+          // 날짜 기준 정렬
+          const sorted = country.dates
+            .map((date, idx) => ({ date, value: country.values[idx], changePct: country.changePcts[idx] }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+          const sortedDates = sorted.map(s => s.date);
+          const sortedValues = sorted.map(s => s.value);
+          const sortedChangePcts = sorted.map(s => s.changePct);
+
+          // change_pct가 없으면 전일 대비 계산
+          const finalChangePcts = sortedChangePcts.map((cp, idx) => {
+            if (cp !== null && !isNaN(cp)) return cp;
+            if (idx === 0) return 0;
+            const prevValue = sortedValues[idx - 1];
+            const currValue = sortedValues[idx];
+            if (prevValue > 0) {
+              return ((currValue - prevValue) / prevValue) * 100;
+            }
+            return 0;
+          });
+
+          const latestValue = sortedValues[sortedValues.length - 1] || 0;
+          const latestChangePct = finalChangePcts[finalChangePcts.length - 1] || 0;
+
+          return {
+            ...country,
+            dates: sortedDates,
+            values: sortedValues,
+            changePcts: finalChangePcts,
+            latestValue,
+            latestChangePct
+          };
+        });
+
+        return countries;
+      }, [metricsData]);
+
+      // Risers/Fallers 계산
+      const risersAndFallers = React.useMemo(() => {
+        if (!processedData) return { risers: [], fallers: [] };
+
+        const risers = processedData
+          .filter(c => c.latestChangePct >= threshold)
+          .sort((a, b) => b.latestChangePct - a.latestChangePct)
+          .slice(0, topN);
+
+        const fallers = processedData
+          .filter(c => c.latestChangePct <= -threshold)
+          .sort((a, b) => a.latestChangePct - b.latestChangePct)
+          .slice(0, topN);
+
+        return { risers, fallers };
+      }, [processedData, threshold, topN]);
+
+      // 선택된 국가 데이터
+      const selectedCountryData = React.useMemo(() => {
+        if (!selectedCountry || !processedData) return null;
+        return processedData.find(c => c.name === selectedCountry);
+      }, [selectedCountry, processedData]);
+
+      // 선택된 국가의 facts 데이터
+      const selectedCountryFacts = React.useMemo(() => {
+        if (!selectedCountry || !factsData.length) return [];
+        const countryCol = findColumn(Object.keys(factsData[0]), ['Country', 'country', 'name', 'Name', '국가']);
+        if (!countryCol) return [];
+        return factsData.filter(f => f[countryCol]?.toString().trim() === selectedCountry);
+      }, [selectedCountry, factsData]);
+
+      // 뉴스 데이터 그룹화 (대륙별)
+      const newsByContinent = React.useMemo(() => {
+        if (!newsData.length) return {};
+        
+        const continentCol = findColumn(Object.keys(newsData[0]), ['Continent', 'continent', '대륙', 'region', 'Region']);
+        const titleCol = findColumn(Object.keys(newsData[0]), ['Title', 'title', '제목', 'headline', 'Headline']);
+        const summaryCol = findColumn(Object.keys(newsData[0]), ['Summary', 'summary', '요약', 'description', 'Description']);
+        const linkCol = findColumn(Object.keys(newsData[0]), ['Link', 'link', '링크', 'url', 'URL']);
+
+        const grouped = {};
+        newsData.forEach(news => {
+          const continent = continentCol ? (news[continentCol]?.toString().trim() || 'OTHER') : 'OTHER';
+          if (!grouped[continent]) grouped[continent] = [];
+          grouped[continent].push({
+            title: titleCol ? news[titleCol] : '',
+            summary: summaryCol ? news[summaryCol] : '',
+            link: linkCol ? news[linkCol] : ''
+          });
+        });
+
+        return grouped;
+      }, [newsData]);
+
+      return (
+        <div className="flex h-screen bg-gray-900">
+          {/* 좌측 사이드바 */}
+          <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div className="p-6 border-b border-gray-700">
+              <h1 className="text-xl font-bold text-blue-400 mb-2">PUBGM Traffic</h1>
+              <div className="flex items-center gap-2 text-sm">
+                <div className={`w-2 h-2 rounded-full ${repoStatus === '연결됨' ? 'bg-green-500' : repoStatus === '연결 실패' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                <span className="text-gray-400">{repoStatus}</span>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4 flex-1 overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">기준 날짜</label>
+                <input
+                  type="date"
+                  value={baseDate}
+                  onChange={(e) => setBaseDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">임계값 (%)</label>
+                <input
+                  type="number"
+                  value={threshold}
+                  onChange={(e) => setThreshold(parseFloat(e.target.value) || 5)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Top N</label>
+                <input
+                  type="number"
+                  value={topN}
+                  onChange={(e) => setTopN(parseInt(e.target.value) || 50)}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm"
+                  min="1"
+                  max="200"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 우측 메인 영역 */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* 탭 네비게이션 */}
+            <div className="bg-gray-800 border-b border-gray-700">
+              <div className="flex">
+                <button
+                  onClick={() => { setActiveTab('heatmap'); setSelectedCountry(null); }}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'heatmap' ? 'tab-active text-blue-400' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Heatmap
+                </button>
+                <button
+                  onClick={() => { setActiveTab('risers'); setSelectedCountry(null); }}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'risers' ? 'tab-active text-blue-400' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Risers/Fallers
+                </button>
+                <button
+                  onClick={() => { setActiveTab('country'); }}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'country' ? 'tab-active text-blue-400' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  Country Detail
+                </button>
+                <button
+                  onClick={() => { setActiveTab('news'); setSelectedCountry(null); }}
+                  className={`px-6 py-3 font-medium text-sm transition-colors ${
+                    activeTab === 'news' ? 'tab-active text-blue-400' : 'text-gray-400 hover:text-gray-300'
+                  }`}
+                >
+                  News
+                </button>
+              </div>
+            </div>
+
+            {/* 탭 컨텐츠 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-400">데이터를 로딩 중입니다...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {activeTab === 'heatmap' && (
+                    <HeatmapTab
+                      data={processedData}
+                      onCountryClick={(country) => {
+                        setSelectedCountry(country);
+                        setActiveTab('country');
+                      }}
+                    />
+                  )}
+
+                  {activeTab === 'risers' && (
+                    <RisersFallersTab
+                      risers={risersAndFallers.risers}
+                      fallers={risersAndFallers.fallers}
+                      onCountryClick={(country) => {
+                        setSelectedCountry(country);
+                        setActiveTab('country');
+                      }}
+                    />
+                  )}
+
+                  {activeTab === 'country' && (
+                    <CountryDetailTab
+                      countryData={selectedCountryData}
+                      facts={selectedCountryFacts}
+                      onSelectCountry={setSelectedCountry}
+                      allCountries={processedData}
+                    />
+                  )}
+
+                  {activeTab === 'news' && (
+                    <NewsTab newsByContinent={newsByContinent} />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Heatmap 탭 컴포넌트
+    function HeatmapTab({ data, onCountryClick }) {
+      const treemapRef = useRef(null);
+
+      useEffect(() => {
+        if (!data || !treemapRef.current) return;
+
+        // 대륙별 그룹화
+        const continentGroups = {};
+        data.forEach(country => {
+          const continent = country.continent || 'OTHER';
+          if (!continentGroups[continent]) {
+            continentGroups[continent] = [];
+          }
+          continentGroups[continent].push(country);
+        });
+
+        // Treemap 데이터 구성
+        let ids = [];
+        let labels = [];
+        let parents = [];
+        let values = [];
+        let colors = [];
+        let text = [];
+        let customdata = [];
+
+        Object.keys(continentGroups).forEach(continent => {
+          const countries = continentGroups[continent];
+          const continentTotal = countries.reduce((sum, c) => sum + c.latestValue, 0);
+          
+          // 대륙 노드
+          const continentId = `continent:${continent}`;
+          ids.push(continentId);
+          labels.push(continent);
+          parents.push('');
+          values.push(continentTotal);
+          colors.push('#1f2937');
+          text.push(`<b style="font-size:24px;color:#fff">${continent}</b>`);
+          customdata.push([null, null, continent]);
+
+          // 국가 노드
+          countries.forEach(country => {
+            const countryId = `country:${continent}:${country.name}`;
+            ids.push(countryId);
+            labels.push(country.name);
+            parents.push(continentId);
+            values.push(country.latestValue);
+            
+            // 색상: 상승(양수) 빨간색, 하락(음수) 파란색 (RdBu_r 스타일)
+            const changePct = country.latestChangePct || 0;
+            let color;
+            if (changePct > 0) {
+              // 빨간색 계열 (상승)
+              const intensity = Math.min(Math.abs(changePct) / 10, 1);
+              color = `rgb(${255}, ${Math.round(255 * (1 - intensity))}, ${Math.round(255 * (1 - intensity))})`;
+            } else if (changePct < 0) {
+              // 파란색 계열 (하락)
+              const intensity = Math.min(Math.abs(changePct) / 10, 1);
+              color = `rgb(${Math.round(255 * (1 - intensity))}, ${Math.round(255 * (1 - intensity))}, ${255})`;
+            } else {
+              color = '#6b7280'; // 회색 (변화 없음)
+            }
+            colors.push(color);
+
+            const displayText = `<b style="font-size:14px;color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,0.8)">${country.name}</b><br><span style="font-size:12px;color:#fff;text-shadow:1px 1px 2px rgba(0,0,0,0.8)">${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%</span>`;
+            text.push(displayText);
+            customdata.push([changePct, country.latestValue, continent]);
+          });
+        });
+
+        const trace = {
+          type: 'treemap',
+          ids,
+          labels,
+          parents,
+          values,
+          text,
+          textinfo: 'text',
+          textposition: 'middle center',
+          marker: {
+            colors,
+            line: { width: 2, color: '#000' }
+          },
+          tiling: { pad: 2 },
+          branchvalues: 'total',
+          maxdepth: 2,
+          hovertemplate: '<b>%{label}</b><br>Value: %{value:,.0f}<br>Change: %{customdata[0]:.2f}%<br>Continent: %{customdata[2]}<extra></extra>',
+          customdata
+        };
+
+        const layout = {
+          paper_bgcolor: '#111827',
+          plot_bgcolor: '#111827',
+          margin: { l: 0, r: 0, t: 0, b: 0 },
+          height: 600,
+          font: { family: 'Arial', size: 12, color: '#fff' }
+        };
+
+        Plotly.newPlot(treemapRef.current, [trace], layout, { responsive: true });
+
+        // 클릭 이벤트
+        treemapRef.current.on('plotly_click', (data) => {
+          const point = data.points[0];
+          if (point.id && point.id.startsWith('country:')) {
+            const countryName = point.label;
+            onCountryClick(countryName);
+          }
+        });
+      }, [data, onCountryClick]);
+
+      if (!data || data.length === 0) {
+        return <div className="text-center text-gray-400 py-12">데이터가 없습니다.</div>;
+      }
+
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-4">Heatmap - 대륙별 국가 트래픽</h2>
+          <div className="bg-gray-800 rounded-lg p-4">
+            <div ref={treemapRef} className="w-full"></div>
+          </div>
+          <p className="text-sm text-gray-400 mt-4">타일을 클릭하면 해당 국가의 상세 정보를 볼 수 있습니다.</p>
+        </div>
+      );
+    }
+
+    // Risers/Fallers 탭 컴포넌트
+    function RisersFallersTab({ risers, fallers, onCountryClick }) {
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">Risers & Fallers</h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Risers */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-xl font-semibold text-red-400 mb-4">급등 국가 (Risers)</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-2 px-4 text-gray-400">국가</th>
+                      <th className="text-right py-2 px-4 text-gray-400">변화율</th>
+                      <th className="text-right py-2 px-4 text-gray-400">값</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {risers.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="text-center py-4 text-gray-500">데이터가 없습니다.</td>
+                      </tr>
+                    ) : (
+                      risers.map((country, idx) => (
+                        <tr
+                          key={idx}
+                          className="border-b border-gray-700 hover:bg-gray-700 cursor-pointer"
+                          onClick={() => onCountryClick(country.name)}
+                        >
+                          <td className="py-2 px-4">{country.name}</td>
+                          <td className="py-2 px-4 text-right text-red-400 font-semibold">
+                            +{country.latestChangePct.toFixed(2)}%
+                          </td>
+                          <td className="py-2 px-4 text-right text-gray-300">
+                            {country.latestValue.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Fallers */}
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-xl font-semibold text-blue-400 mb-4">급락 국가 (Fallers)</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left py-2 px-4 text-gray-400">국가</th>
+                      <th className="text-right py-2 px-4 text-gray-400">변화율</th>
+                      <th className="text-right py-2 px-4 text-gray-400">값</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fallers.length === 0 ? (
+                      <tr>
+                        <td colSpan="3" className="text-center py-4 text-gray-500">데이터가 없습니다.</td>
+                      </tr>
+                    ) : (
+                      fallers.map((country, idx) => (
+                        <tr
+                          key={idx}
+                          className="border-b border-gray-700 hover:bg-gray-700 cursor-pointer"
+                          onClick={() => onCountryClick(country.name)}
+                        >
+                          <td className="py-2 px-4">{country.name}</td>
+                          <td className="py-2 px-4 text-right text-blue-400 font-semibold">
+                            {country.latestChangePct.toFixed(2)}%
+                          </td>
+                          <td className="py-2 px-4 text-right text-gray-300">
+                            {country.latestValue.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Country Detail 탭 컴포넌트
+    function CountryDetailTab({ countryData, facts, onSelectCountry, allCountries }) {
+      const chartRef = useRef(null);
+      const chartInstanceRef = useRef(null);
+
+      useEffect(() => {
+        if (!countryData || !chartRef.current) return;
+
+        // 기존 차트 제거
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.destroy();
+        }
+
+        const ctx = chartRef.current.getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: countryData.dates,
+            datasets: [{
+              label: 'Value',
+              data: countryData.values,
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                labels: { color: '#fff' }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' }
+              },
+              y: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' }
+              }
+            }
+          }
+        });
+
+        chartInstanceRef.current = chart;
+      }, [countryData]);
+
+      if (!countryData) {
+        return (
+          <div>
+            <h2 className="text-2xl font-bold mb-4">Country Detail</h2>
+            <div className="bg-gray-800 rounded-lg p-6">
+              <label className="block text-sm font-medium text-gray-300 mb-2">국가 선택</label>
+              <select
+                onChange={(e) => onSelectCountry(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                defaultValue=""
+              >
+                <option value="">국가를 선택하세요</option>
+                {allCountries?.map(c => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-4">{countryData.name} 상세 정보</h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div className="bg-gray-800 rounded-lg p-4">
+              <div className="text-sm text-gray-400 mb-1">최신 값</div>
+              <div className="text-2xl font-bold">{countryData.latestValue.toLocaleString()}</div>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4">
+              <div className="text-sm text-gray-400 mb-1">변화율</div>
+              <div className={`text-2xl font-bold ${countryData.latestChangePct >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                {countryData.latestChangePct >= 0 ? '+' : ''}{countryData.latestChangePct.toFixed(2)}%
+              </div>
+            </div>
+            <div className="bg-gray-800 rounded-lg p-4">
+              <div className="text-sm text-gray-400 mb-1">대륙</div>
+              <div className="text-2xl font-bold">{countryData.continent}</div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">시계열 차트</h3>
+            <div style={{ height: '300px' }}>
+              <canvas ref={chartRef}></canvas>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">최근 데이터</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="text-left py-2 px-4 text-gray-400">날짜</th>
+                    <th className="text-right py-2 px-4 text-gray-400">값</th>
+                    <th className="text-right py-2 px-4 text-gray-400">변화율</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {countryData.dates.slice(-10).reverse().map((date, idx) => {
+                    const realIdx = countryData.dates.length - 1 - idx;
+                    return (
+                      <tr key={idx} className="border-b border-gray-700">
+                        <td className="py-2 px-4">{date}</td>
+                        <td className="py-2 px-4 text-right">{countryData.values[realIdx].toLocaleString()}</td>
+                        <td className={`py-2 px-4 text-right ${countryData.changePcts[realIdx] >= 0 ? 'text-red-400' : 'text-blue-400'}`}>
+                          {countryData.changePcts[realIdx] >= 0 ? '+' : ''}{countryData.changePcts[realIdx].toFixed(2)}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {facts.length > 0 && (
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">상세 정보</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {facts.map((fact, idx) => (
+                  <div key={idx} className="bg-gray-700 rounded p-4">
+                    {Object.entries(fact).map(([key, value]) => (
+                      key !== 'Country' && key !== 'country' && (
+                        <div key={key} className="mb-2">
+                          <div className="text-sm text-gray-400">{key}</div>
+                          <div className="text-white">{value}</div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // News 탭 컴포넌트
+    function NewsTab({ newsByContinent }) {
+      const continents = Object.keys(newsByContinent);
+
+      if (continents.length === 0) {
+        return (
+          <div>
+            <h2 className="text-2xl font-bold mb-4">News</h2>
+            <div className="text-center text-gray-400 py-12">뉴스 데이터가 없습니다.</div>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          <h2 className="text-2xl font-bold mb-6">News - 대륙별 뉴스</h2>
+          
+          <div className="space-y-6">
+            {continents.map(continent => (
+              <div key={continent} className="bg-gray-800 rounded-lg p-6">
+                <h3 className="text-xl font-semibold mb-4 text-blue-400">{continent}</h3>
+                <div className="space-y-4">
+                  {newsByContinent[continent].map((news, idx) => (
+                    <div key={idx} className="bg-gray-700 rounded p-4 hover:bg-gray-600 transition-colors">
+                      {news.title && (
+                        <h4 className="font-semibold text-lg mb-2">
+                          {news.link ? (
+                            <a href={news.link} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                              {news.title}
+                            </a>
+                          ) : (
+                            news.title
+                          )}
+                        </h4>
+                      )}
+                      {news.summary && (
+                        <p className="text-gray-300 text-sm">{news.summary}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // 앱 렌더링
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+    </script>
+</body>
+</html>
