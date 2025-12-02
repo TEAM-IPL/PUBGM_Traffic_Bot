@@ -141,7 +141,8 @@
         </select>
         <span id="comparisonInfo" style="margin-left:8px;font-size:11px;color:var(--muted)"></span>
       </label>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <span style="margin:0 12px;color:var(--border);font-size:20px">|</span>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <label><strong>Date Range:</strong></label>
         <input type="date" id="startDate" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px"/>
         <span style="color:var(--muted)">~</span>
@@ -151,9 +152,8 @@
         <span id="dateRangeIndicator" style="display:none;margin-left:8px;padding:6px 12px;background:rgba(35,134,54,0.15);border:1px solid rgba(35,134,54,0.3);border-radius:6px;font-size:12px;color:#2ed573">
           📅 <span id="dateRangeText"></span>
         </span>
-      </div>
-      <!-- 월별 선택 필터 -->
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
+        <span style="margin:0 12px;color:var(--border);font-size:20px">|</span>
+        <!-- 월별 선택 필터 -->
         <label><strong>📅 월별 선택:</strong></label>
         <select id="monthSelect" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px;min-width:140px">
           <option value="">월 선택...</option>
