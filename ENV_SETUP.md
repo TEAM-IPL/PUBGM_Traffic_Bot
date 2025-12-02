@@ -25,10 +25,14 @@ CROSS_VALIDATE=true
 NEWS_API_TYPE=openai
 
 # OpenAI API 키
-OPENAI_API_KEY=sk-your-openai-api-key-here
+OPENAI_API_KEY=sk-proj-your-openai-api-key-here
 
 # Claude API 키
-CLAUDE_API_KEY=sk-ant-your-claude-api-key-here
+CLAUDE_API_KEY=sk-ant-api03-your-claude-api-key-here
+
+# NAVER_API_KEY
+NAVER_CLIENT_ID=your-naver-client-id
+NAVER_CLIENT_SECRET=your-naver-client-secret
 ```
 
 ### 2. 로컬에서 실행
