@@ -138,11 +138,13 @@
           <option value="QoQ">QoQ (분기 합계)</option>
           <option value="YoY">YoY (전년 동일)</option>
           <option value="Period">Period (기간 전체)</option>
+          <option value="Monthly">📅 월별 비교</option>
         </select>
         <span id="comparisonInfo" style="margin-left:8px;font-size:11px;color:var(--muted)"></span>
       </label>
       <span style="margin:0 12px;color:var(--border);font-size:20px">|</span>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <!-- Date Range 섹션 -->
+      <div id="dateRangeSection" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <label><strong>Date Range:</strong></label>
         <input type="date" id="startDate" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px"/>
         <span style="color:var(--muted)">~</span>
@@ -152,17 +154,18 @@
         <span id="dateRangeIndicator" style="display:none;margin-left:8px;padding:6px 12px;background:rgba(35,134,54,0.15);border:1px solid rgba(35,134,54,0.3);border-radius:6px;font-size:12px;color:#2ed573">
           📅 <span id="dateRangeText"></span>
         </span>
-        <span style="margin:0 12px;color:var(--border);font-size:20px">|</span>
-        <!-- 월별 선택 필터 -->
-        <label><strong>📅 월별 선택:</strong></label>
+      </div>
+      <!-- 월별 선택 섹션 (기본 숨김) -->
+      <div id="monthlySection" style="display:none;gap:12px;align-items:center;flex-wrap:wrap">
+        <label><strong>📅 월별 비교:</strong></label>
         <select id="monthSelect" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px;min-width:140px">
-          <option value="">월 선택...</option>
+          <option value="">기준 월 선택...</option>
         </select>
         <span style="color:var(--muted);font-size:12px">vs</span>
         <select id="compareMonthSelect" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px;min-width:140px">
-          <option value="">비교 월 (선택)</option>
+          <option value="">비교 월 선택...</option>
         </select>
-        <button id="btnApplyMonth" style="padding:6px 12px;background:linear-gradient(135deg,#5352ed,#3742fa);border:none;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;font-size:12px">월별 적용</button>
+        <button id="btnApplyMonth" style="padding:6px 12px;background:linear-gradient(135deg,#5352ed,#3742fa);border:none;border-radius:6px;color:#fff;font-weight:600;cursor:pointer;font-size:12px">비교 적용</button>
         <button id="btnClearMonth" style="padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:#fff;font-weight:600;cursor:pointer;font-size:12px">초기화</button>
         <span id="monthIndicator" style="display:none;margin-left:8px;padding:6px 12px;background:rgba(83,82,237,0.15);border:1px solid rgba(83,82,237,0.3);border-radius:6px;font-size:12px;color:#5352ed">
           📆 <span id="monthText"></span>
@@ -957,6 +960,24 @@
       }
     });
     // ========== 월별 선택 기능 끝 ==========
+
+    // ========== Comparison 타입 변경 시 UI 전환 ==========
+    document.getElementById('comparisonType').addEventListener('change', function() {
+      const selectedType = this.value;
+      const dateRangeSection = document.getElementById('dateRangeSection');
+      const monthlySection = document.getElementById('monthlySection');
+      
+      if(selectedType === 'Monthly') {
+        // 월별 비교 모드: Date Range 숨기고 월별 선택 표시
+        dateRangeSection.style.display = 'none';
+        monthlySection.style.display = 'flex';
+      } else {
+        // 다른 모드: Date Range 표시하고 월별 선택 숨김
+        dateRangeSection.style.display = 'flex';
+        monthlySection.style.display = 'none';
+      }
+    });
+    // ========== Comparison 타입 변경 끝 ==========
 
     function processData(rows){
       try{
