@@ -1,0 +1,84 @@
+name: Daily News Collection & Slack Report
+
+on:
+  schedule:
+    # 매일 한국시간 오전 9시 (UTC 00:00)에 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  collect-news:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run news collection script
+        id: collect_news
+        env:
+          NEWS_API_TYPE: rss
+        run: |
+          python scripts/fetch_news.py
+          exit_code=$?
+          echo "exit_code=$exit_code" >> $GITHUB_OUTPUT
+      
+      - name: Clean irrelevant news
+        run: |
+          python scripts/clean_news.py
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet data/news.csv; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push changes
+        if: steps.collect_news.outputs.exit_code == '0' && steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/news.csv data/news_cache.json
+          DATE=$(date +%Y-%m-%d)
+          git commit -m "Auto-update: Daily news [$DATE]"
+          git push
+      
+      - name: Send Slack notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            python scripts/send_slack.py
+          else
+            echo "SLACK_WEBHOOK_URL not set - skipping Slack notification"
+          fi
+      
+      - name: Report status
+        if: always()
+        run: |
+          if [ "${{ steps.collect_news.outputs.exit_code }}" == "0" ]; then
+            if [ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]; then
+              echo "✅ News collection complete: New news added"
+            else
+              echo "ℹ️ News collection complete: No new news"
+            fi
+          else
+            echo "❌ News collection failed"
+            exit 1
+          fi

@@ -1,0 +1,38 @@
+{
+  "generated_at": "2025-12-02T14:48:26.981590",
+  "news_count": 11,
+  "has_issues": true,
+  "summary": "**핵심 영향**\n인도네시아, 태국, 스리랑카의 홍수와 산사태로 인해 사망자 1000명이 넘게 발생하여 경제 및 사회에 큰 영향을 미칠 것으로 예상됩니다. 이로 인해 모바일 게임 트래픽에도 영향을 받을 수 있습니다. 특히, 통신 인프라 및 인터넷 접속이 어려워질 수 있습니다.\n\n**국가별 예상 영향**\n* 인도네시아: 모바일 게임 트래픽이 감소할 가능성이 높습니다.\n* 태국: 게임 이용이 어려워질 수 있습니다.\n* 스리랑카: 인터넷 접속 속도가 느려질 수 있습니다.",
+  "affected_countries": [
+    "Indonesia",
+    "Korea",
+    "Hong Kong"
+  ],
+  "key_issues": [
+    {
+      "title": "KB Bank 인도네시아, 'Economic Outlook 2026' 개최 - 뉴스핌",
+      "country": "Indonesia",
+      "category": "gaming"
+    },
+    {
+      "title": "KB Bank 인도네시아, ‘Economic Outlook 2026’ 개최 - hankyung.com",
+      "country": "Indonesia",
+      "category": "gaming"
+    },
+    {
+      "title": "‘Floods·Landslides’ Leave the Death Toll in Indonesia, Thailand, and Sri Lanka A",
+      "country": "",
+      "category": "gaming"
+    },
+    {
+      "title": "인도네시아·태국·스리랑카 덮친 홍수…사망자 1000명 달해 - 이데일리",
+      "country": "Indonesia",
+      "category": "gaming"
+    },
+    {
+      "title": "[현장영상] ‘홍수·산사태’ 인도네시아·태국·스리랑카 사망자 1천 명 가까이 발생 - v.daum.net",
+      "country": "Indonesia",
+      "category": "gaming"
+    }
+  ]
+}

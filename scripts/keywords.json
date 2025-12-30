@@ -1,0 +1,192 @@
+{
+  "base_keywords": [
+    "PUBG Mobile",
+    "PUBG Esports",
+    "Krafton",
+    "Battlegrounds Mobile"
+  ],
+  "gaming_keywords": {
+    "pubg": [
+      "PUBG Mobile update",
+      "PUBG Mobile esports",
+      "PUBG Mobile tournament",
+      "PUBG Mobile season",
+      "배틀그라운드 모바일",
+      "펍지 모바일"
+    ],
+    "krafton": [
+      "Krafton news",
+      "Krafton games",
+      "크래프톤"
+    ],
+    "esports": [
+      "PMGC",
+      "PMPL",
+      "PUBG esports",
+      "mobile esports",
+      "모바일 e스포츠"
+    ],
+    "competitor": [
+      "Free Fire update",
+      "Call of Duty Mobile update",
+      "Fortnite Mobile",
+      "Apex Legends Mobile",
+      "Honor of Kings",
+      "Mobile Legends"
+    ],
+    "industry": [
+      "mobile gaming market",
+      "mobile game revenue",
+      "app store gaming",
+      "Google Play games"
+    ]
+  },
+  "priority_countries": {
+    "Iraq": {
+      "keywords": ["Iraq", "Baghdad", "Iraq news"],
+      "topics": ["internet shutdown", "war", "conflict", "curfew", "holiday", "explosion", "bombing", "terrorism", "protest"]
+    },
+    "Turkey": {
+      "keywords": ["Turkey", "Türkiye", "Istanbul", "Ankara", "Turkey news"],
+      "topics": ["internet shutdown", "earthquake", "holiday", "curfew", "explosion", "terrorism", "protest"]
+    },
+    "Pakistan": {
+      "keywords": ["Pakistan", "Islamabad", "Karachi", "Pakistan news"],
+      "topics": ["internet shutdown", "power outage", "holiday", "curfew", "explosion", "terrorism", "flood", "protest"]
+    },
+    "Russia": {
+      "keywords": ["Russia", "Moscow", "Russia news", "Россия"],
+      "topics": ["war", "sanctions", "internet shutdown", "holiday", "explosion", "cyber attack", "protest"]
+    },
+    "Egypt": {
+      "keywords": ["Egypt", "Cairo", "Egypt news", "مصر"],
+      "topics": ["internet shutdown", "curfew", "holiday", "power outage", "protest", "strike"]
+    },
+    "Saudi Arabia": {
+      "keywords": ["Saudi Arabia", "Riyadh", "Saudi news", "السعودية"],
+      "topics": ["holiday", "curfew", "internet", "festival", "religious holiday"]
+    },
+    "USA": {
+      "keywords": ["United States", "USA", "America", "US news"],
+      "topics": ["holiday", "school calendar", "internet outage", "natural disaster", "sports event", "election", "cyber attack", "tech outage"]
+    },
+    "Germany": {
+      "keywords": ["Germany", "Deutschland", "Berlin", "Germany news"],
+      "topics": ["holiday", "school calendar", "internet outage", "strike", "protest", "tech outage"]
+    },
+    "Indonesia": {
+      "keywords": ["Indonesia", "Jakarta", "Indonesia news"],
+      "topics": ["holiday", "internet shutdown", "natural disaster", "school calendar", "earthquake", "flood", "festival"]
+    },
+    "Hong Kong": {
+      "keywords": ["Hong Kong", "Hongkong", "香港"],
+      "topics": ["holiday", "internet", "school calendar", "protest", "censorship"]
+    }
+  },
+  "traffic_impact_keywords": {
+    "holiday": [
+      "holiday", "national holiday", "public holiday", "festival", "celebration", "religious holiday",
+      "공휴일", "휴일", "명절", "축제", "종교적 휴일"
+    ],
+    "school_calendar": [
+      "school holiday", "summer break", "winter break", "semester", "exam period", "vacation",
+      "방학", "학기", "시험기간", "휴가"
+    ],
+    "war_conflict": [
+      "war", "conflict", "military", "attack", "bombing", "invasion", "military operation",
+      "전쟁", "분쟁", "군사", "군사 작전"
+    ],
+    "terrorism_explosion": [
+      "explosion", "bomb", "terrorism", "terrorist attack", "bombing", "blast", "IED",
+      "폭발", "테러", "폭탄", "테러 공격"
+    ],
+    "protest_strike": [
+      "protest", "demonstration", "strike", "riot", "unrest", "civil unrest", "labor strike",
+      "시위", "데모", "파업", "폭동", "노동 파업"
+    ],
+    "natural_disaster": [
+      "earthquake", "flood", "hurricane", "typhoon", "tsunami", "wildfire", "drought", "volcano", "landslide",
+      "지진", "홍수", "태풍", "산불", "가뭄", "화산", "산사태"
+    ],
+    "internet_shutdown": [
+      "internet shutdown", "internet blackout", "internet outage", "network disruption", "internet ban",
+      "인터넷 차단", "통신 장애", "네트워크 중단", "인터넷 금지"
+    ],
+    "power_outage": [
+      "power outage", "blackout", "electricity cut", "power failure", "grid failure", "energy crisis",
+      "정전", "전력 공급 중단", "전력 위기"
+    ],
+    "curfew": [
+      "curfew", "lockdown", "restriction", "ban", "emergency", "state of emergency",
+      "통금", "봉쇄", "제한", "비상사태"
+    ],
+    "economic": [
+      "economic crisis", "recession", "inflation", "currency", "currency devaluation", "economic collapse",
+      "경제 위기", "인플레이션", "통화 평가절하", "경제 붕괴"
+    ],
+    "tech_outage": [
+      "social media outage", "app store outage", "cloud outage", "server outage", "DNS outage", "CDN outage",
+      "소셜미디어 장애", "앱스토어 장애", "클라우드 장애", "서버 장애"
+    ],
+    "cyber_attack": [
+      "cyber attack", "DDoS attack", "hacking", "data breach", "ransomware", "malware",
+      "사이버 공격", "DDoS 공격", "해킹", "데이터 유출", "랜섬웨어"
+    ],
+    "censorship": [
+      "censorship", "content ban", "app ban", "game ban", "restriction", "block",
+      "검열", "콘텐츠 금지", "앱 금지", "게임 금지"
+    ],
+    "sports_event": [
+      "world cup", "olympics", "championship", "sports event", "major tournament", "football", "soccer",
+      "월드컵", "올림픽", "챔피언십", "스포츠 이벤트", "축구"
+    ],
+    "election": [
+      "election", "voting", "political event", "referendum", "presidential election",
+      "선거", "투표", "정치 이벤트", "국민투표"
+    ],
+    "pandemic": [
+      "pandemic", "epidemic", "outbreak", "quarantine", "lockdown", "health emergency",
+      "팬데믹", "전염병", "발생", "격리", "보건 비상사태"
+    ],
+    "infrastructure_damage": [
+      "infrastructure damage", "bridge collapse", "building collapse", "road closure", "transportation disruption",
+      "인프라 손상", "교량 붕괴", "건물 붕괴", "도로 폐쇄"
+    ],
+    "competitor_game": [
+      "Call of Duty Mobile", "Free Fire", "Fortnite Mobile", "Apex Legends Mobile", "new game release", "game update",
+      "콜옵 모바일", "프리파이어", "포트나이트 모바일", "신규 게임 출시"
+    ],
+    "social_trend": [
+      "viral trend", "social media trend", "influencer", "streaming", "esports tournament", "gaming tournament",
+      "바이럴 트렌드", "소셜미디어 트렌드", "인플루언서", "스트리밍", "e스포츠 토너먼트"
+    ],
+    "major_event": [
+      "major event", "cultural event", "music festival", "gaming convention", "tech conference",
+      "주요 이벤트", "문화 행사", "음악 축제", "게임 컨벤션"
+    ]
+  },
+  "categories": [
+    "gaming",
+    "holiday",
+    "school_calendar",
+    "war_conflict",
+    "terrorism_explosion",
+    "protest_strike",
+    "natural_disaster",
+    "internet_shutdown",
+    "power_outage",
+    "curfew",
+    "economic",
+    "tech_outage",
+    "cyber_attack",
+    "censorship",
+    "sports_event",
+    "election",
+    "pandemic",
+    "infrastructure_damage",
+    "competitor_game",
+    "social_trend",
+    "major_event",
+    "other"
+  ]
+}

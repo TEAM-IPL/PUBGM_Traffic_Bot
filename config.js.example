@@ -1,0 +1,18 @@
+// API 설정 파일 예제
+// 로컬 개발 시 이 파일을 config.js로 복사하여 사용하세요
+// GitHub Actions에서는 자동으로 config.js를 생성합니다
+
+window.API_CONFIG = {
+  // Gemini API 키 (선택사항, 무료 티어 사용 가능)
+  // 발급: https://aistudio.google.com/app/apikey
+  GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY_HERE',
+  
+  // OpenAI GPT API 키 (선택사항)
+  // GPT_API_KEY: 'YOUR_GPT_API_KEY_HERE',
+  
+  // 기타 API 키들
+  // NEWS_API_KEY: 'YOUR_NEWS_API_KEY_HERE',
+};
+
+// 참고: RSS 피드는 API 키 없이 자동으로 작동합니다!
+
