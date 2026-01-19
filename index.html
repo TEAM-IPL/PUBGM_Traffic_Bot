@@ -63,8 +63,8 @@
       <label><input type="checkbox" id="groupByContinent" checked/> <strong>Group by Sector (Continent)</strong></label>
           <label style="margin-top:8px"><strong>Comparison:</strong>
         <select id="comparisonType" style="padding:6px 10px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px;margin-left:8px;font-size:13px">
-          <option value="DoD" selected>DoD (전일 대비: 마지막 날 vs 마지막-1일)</option>
-          <option value="WoW">WoW (주간 대비: 7일 전)</option>
+          <option value="DoD">DoD (전일 대비: 마지막 날 vs 마지막-1일)</option>
+          <option value="WoW" selected>WoW (주간 대비: 월~토 기준 직전주)</option>
           <option value="MoM">MoM (월간 대비: 1개월 전)</option>
           <option value="YoY">YoY (연간 대비: 1년 전)</option>
         </select>
@@ -83,6 +83,7 @@
         
         <div class="content">
             <div class="stats-grid" id="stats"></div>
+      <div id="comparisonRange" style="font-size:16px;color:#fff;margin-bottom:16px;padding:14px;background:var(--panel);border-radius:8px;border:1px solid var(--border);text-align:center;font-weight:700;letter-spacing:0.5px"></div>
       <div id="treemap">
         <div class="loading-overlay" id="loadingOverlay">
           <div class="loading-spinner"></div>
@@ -122,6 +123,24 @@
           </div>
         </div>
       </div>
+      <div id="regionTraffic" style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--border);border-radius:8px">
+        <div id="regionTrafficTitle" style="font-size:16px;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">권역별 트래픽 비중</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="padding:12px;text-align:left;font-size:14px;color:var(--muted);font-weight:600">권역</th>
+                <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">Traffic</th>
+                <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">비중</th>
+                <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">Avg Change</th>
+              </tr>
+            </thead>
+            <tbody id="regionTrafficBody">
+              <tr><td colspan="4" style="padding:16px;text-align:center;color:var(--muted);font-size:14px">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div id="trafficTop10" style="margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--border);border-radius:8px">
         <div id="trafficTop10Title" style="font-size:16px;color:var(--muted);margin-bottom:16px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600">Traffic Top 10 (DoD 기준)</div>
         <div style="overflow-x:auto">
@@ -148,15 +167,28 @@
     </div>
 
     <script>
-    // ---------- Mapping: Country → Continent (Sector) ----------
+    // ---------- Mapping: Country → Region (게임 업계 표준 권역) ----------
     const countryToContinent = {
-      'USA':'NORTH AMERICA','Canada':'NORTH AMERICA','Mexico':'NORTH AMERICA','Guatemala':'NORTH AMERICA','Honduras':'NORTH AMERICA','El Salvador':'NORTH AMERICA','Nicaragua':'NORTH AMERICA','Costa Rica':'NORTH AMERICA','Panama':'NORTH AMERICA','Cuba':'NORTH AMERICA','Jamaica':'NORTH AMERICA','Haiti':'NORTH AMERICA','Dominican Republic':'NORTH AMERICA','Trinidad':'NORTH AMERICA','Trinidad and Tobago':'NORTH AMERICA','Barbados':'NORTH AMERICA','Bahamas':'NORTH AMERICA','Belize':'NORTH AMERICA','Puerto Rico':'NORTH AMERICA','Curacao':'NORTH AMERICA','Dutch Caribbean':'NORTH AMERICA','Saint Pierre and Miquelon':'NORTH AMERICA','United States Virgin Islands':'NORTH AMERICA','Sint Maarten':'NORTH AMERICA','Saint Martin':'NORTH AMERICA','Turks and Caicos Islands':'NORTH AMERICA','Cayman Islands':'NORTH AMERICA','Bermuda':'NORTH AMERICA','Saint Kitts and Nevis':'NORTH AMERICA','Antigua and Barbuda':'NORTH AMERICA','Saint Vincent and the Grenadines':'NORTH AMERICA','Grenada':'NORTH AMERICA','Dominica':'NORTH AMERICA','Guadeloupe':'NORTH AMERICA','Martinique':'NORTH AMERICA','Anguilla':'NORTH AMERICA','Montserrat':'NORTH AMERICA',
-      'Brazil':'SOUTH AMERICA','Argentina':'SOUTH AMERICA','Chile':'SOUTH AMERICA','Colombia':'SOUTH AMERICA','Peru':'SOUTH AMERICA','Ecuador':'SOUTH AMERICA','Venezuela':'SOUTH AMERICA','Uruguay':'SOUTH AMERICA','Paraguay':'SOUTH AMERICA','Bolivia':'SOUTH AMERICA','Suriname':'SOUTH AMERICA','Guyana':'SOUTH AMERICA','French Guiana':'SOUTH AMERICA','Falkland Islands':'SOUTH AMERICA','Aruba':'SOUTH AMERICA',
-      'Germany':'EUROPE','UK':'EUROPE','France':'EUROPE','Italy':'EUROPE','Spain':'EUROPE','Netherlands':'EUROPE','Poland':'EUROPE','Belgium':'EUROPE','Sweden':'EUROPE','Switzerland':'EUROPE','Greece':'EUROPE','Portugal':'EUROPE','Czech Republic':'EUROPE','Romania':'EUROPE','Hungary':'EUROPE','Bulgaria':'EUROPE','Croatia':'EUROPE','Serbia':'EUROPE','Slovakia':'EUROPE','Slovenia':'EUROPE','Austria':'EUROPE','Denmark':'EUROPE','Norway':'EUROPE','Finland':'EUROPE','Ireland':'EUROPE','Cyprus':'EUROPE','Albania':'EUROPE','Bosnia':'EUROPE','Macedonia':'EUROPE','Montenegro':'EUROPE','Kosovo':'EUROPE','Iceland':'EUROPE','Luxembourg':'EUROPE','Malta':'EUROPE','Monaco':'EUROPE','Andorra':'EUROPE','Liechtenstein':'EUROPE','San Marino':'EUROPE','Vatican':'EUROPE','Jersey':'EUROPE','Guernsey':'EUROPE','Isle of Man':'EUROPE','Faroe Islands':'EUROPE','Greenland':'EUROPE','Svalbard':'EUROPE','Ukraine':'EUROPE','Lithuania':'EUROPE','Latvia':'EUROPE','Estonia':'EUROPE','Moldova':'EUROPE','Belarus':'EUROPE',
-      'China':'ASIA','India':'ASIA','Japan':'ASIA','Korea':'ASIA','South Korea':'ASIA','Indonesia':'ASIA','Thailand':'ASIA','Vietnam':'ASIA','Philippines':'ASIA','Malaysia':'ASIA','Singapore':'ASIA','Pakistan':'ASIA','Bangladesh':'ASIA','Myanmar':'ASIA','Cambodia':'ASIA','Laos':'ASIA','Nepal':'ASIA','Sri Lanka':'ASIA','Afghanistan':'ASIA','Iraq':'ASIA','Iran':'ASIA','Israel':'ASIA','Jordan':'ASIA','Lebanon':'ASIA','Kuwait':'ASIA','Qatar':'ASIA','Oman':'ASIA','Bahrain':'ASIA','Yemen':'ASIA','Syria':'ASIA','Saudi Arabia':'ASIA','UAE':'ASIA','Turkey':'ASIA','Kazakhstan':'ASIA','Uzbekistan':'ASIA','Kyrgyzstan':'ASIA','Tajikistan':'ASIA','Turkmenistan':'ASIA','Azerbaijan':'ASIA','Armenia':'ASIA','Georgia':'ASIA','Mongolia':'ASIA','North Korea':'ASIA','Taiwan':'ASIA','Hong Kong':'ASIA','Macau':'ASIA','Macao':'ASIA','Brunei':'ASIA','East Timor':'ASIA','Bhutan':'ASIA','Maldives':'ASIA','Palestine':'ASIA',
-      'South Africa':'AFRICA','Egypt':'AFRICA','Nigeria':'AFRICA','Morocco':'AFRICA','Algeria':'AFRICA','Tunisia':'AFRICA','Libya':'AFRICA','Sudan':'AFRICA','South Sudan':'AFRICA','Ethiopia':'AFRICA','Kenya':'AFRICA','Tanzania':'AFRICA','Uganda':'AFRICA','Ghana':'AFRICA','Ivory Coast':'AFRICA','Côte dIvoire':'AFRICA','Senegal':'AFRICA','Cameroon':'AFRICA','Angola':'AFRICA','Mozambique':'AFRICA','Madagascar':'AFRICA','Zimbabwe':'AFRICA','Zambia':'AFRICA','Malawi':'AFRICA','Rwanda':'AFRICA','Burundi':'AFRICA','Somalia':'AFRICA','Djibouti':'AFRICA','Eritrea':'AFRICA','Mauritania':'AFRICA','Mali':'AFRICA','Burkina Faso':'AFRICA','Niger':'AFRICA','Chad':'AFRICA','Central African Republic':'AFRICA','Congo':'AFRICA','DR Congo':'AFRICA','Gabon':'AFRICA','Equatorial Guinea':'AFRICA','Sao Tome':'AFRICA','Sao Tome and Principe':'AFRICA','Guinea':'AFRICA','Sierra Leone':'AFRICA','Liberia':'AFRICA','Togo':'AFRICA','Benin':'AFRICA','Mauritius':'AFRICA','Seychelles':'AFRICA','Comoros':'AFRICA','Cape Verde':'AFRICA','Guinea-Bissau':'AFRICA','Gambia':'AFRICA','Lesotho':'AFRICA','Swaziland':'AFRICA','Botswana':'AFRICA','Namibia':'AFRICA','Reunion':'AFRICA',
-      'Australia':'OCEANIA','New Zealand':'OCEANIA','Papua New Guinea':'OCEANIA','Fiji':'OCEANIA','Fiji Islands':'OCEANIA','Solomon Islands':'OCEANIA','Vanuatu':'OCEANIA','Samoa':'OCEANIA','Tonga':'OCEANIA','Palau':'OCEANIA','Micronesia':'OCEANIA','Federated States of Micronesia':'OCEANIA','Marshall Islands':'OCEANIA','Norfolk Island':'OCEANIA','Christmas Island':'OCEANIA','Cocos Islands':'OCEANIA','French Polynesia':'OCEANIA','New Caledonia':'OCEANIA','Cook Islands':'OCEANIA','Guam':'OCEANIA','Northern Mariana Islands':'OCEANIA','Niue':'OCEANIA',
-      'Russia':'RUSSIA & CIS'
+      // NA (North America)
+      'USA':'NA','United States':'NA','Canada':'NA',
+      // LATAM (Latin America)
+      'Mexico':'LATAM','Brazil':'LATAM','Argentina':'LATAM','Chile':'LATAM','Colombia':'LATAM','Peru':'LATAM','Ecuador':'LATAM','Venezuela':'LATAM','Uruguay':'LATAM','Paraguay':'LATAM','Bolivia':'LATAM','Suriname':'LATAM','Guyana':'LATAM','French Guiana':'LATAM','Falkland Islands':'LATAM','Aruba':'LATAM','Guatemala':'LATAM','Honduras':'LATAM','El Salvador':'LATAM','Nicaragua':'LATAM','Costa Rica':'LATAM','Panama':'LATAM','Cuba':'LATAM','Jamaica':'LATAM','Haiti':'LATAM','Dominican Republic':'LATAM','Trinidad':'LATAM','Trinidad and Tobago':'LATAM','Barbados':'LATAM','Bahamas':'LATAM','Belize':'LATAM','Puerto Rico':'LATAM','Curacao':'LATAM','Dutch Caribbean':'LATAM','Saint Pierre and Miquelon':'LATAM','United States Virgin Islands':'LATAM','Sint Maarten':'LATAM','Saint Martin':'LATAM','Turks and Caicos Islands':'LATAM','Cayman Islands':'LATAM','Bermuda':'LATAM','Saint Kitts and Nevis':'LATAM','Antigua and Barbuda':'LATAM','Saint Vincent and the Grenadines':'LATAM','Grenada':'LATAM','Dominica':'LATAM','Guadeloupe':'LATAM','Martinique':'LATAM','Anguilla':'LATAM','Montserrat':'LATAM',
+      // EU (Europe)
+      'Germany':'EU','UK':'EU','France':'EU','Italy':'EU','Spain':'EU','Netherlands':'EU','Poland':'EU','Belgium':'EU','Sweden':'EU','Switzerland':'EU','Greece':'EU','Portugal':'EU','Czech Republic':'EU','Romania':'EU','Hungary':'EU','Bulgaria':'EU','Croatia':'EU','Serbia':'EU','Slovakia':'EU','Slovenia':'EU','Austria':'EU','Denmark':'EU','Norway':'EU','Finland':'EU','Ireland':'EU','Cyprus':'EU','Albania':'EU','Bosnia':'EU','Macedonia':'EU','Montenegro':'EU','Kosovo':'EU','Iceland':'EU','Luxembourg':'EU','Malta':'EU','Monaco':'EU','Andorra':'EU','Liechtenstein':'EU','San Marino':'EU','Vatican':'EU','Jersey':'EU','Guernsey':'EU','Isle of Man':'EU','Faroe Islands':'EU','Greenland':'EU','Svalbard':'EU','Lithuania':'EU','Latvia':'EU','Estonia':'EU','Moldova':'EU','Belarus':'EU',
+      // MENA (Middle East and North Africa)
+      'Turkey':'MENA','Iraq':'MENA','Iran':'MENA','Saudi Arabia':'MENA','UAE':'MENA','Israel':'MENA','Jordan':'MENA','Lebanon':'MENA','Kuwait':'MENA','Qatar':'MENA','Oman':'MENA','Bahrain':'MENA','Yemen':'MENA','Syria':'MENA','Palestine':'MENA','Egypt':'MENA','Morocco':'MENA','Algeria':'MENA','Tunisia':'MENA','Libya':'MENA','Sudan':'MENA','Mauritania':'MENA',
+      // SEA (Southeast Asia)
+      'Indonesia':'SEA','Thailand':'SEA','Vietnam':'SEA','Philippines':'SEA','Malaysia':'SEA','Singapore':'SEA','Myanmar':'SEA','Cambodia':'SEA','Laos':'SEA','Brunei':'SEA','East Timor':'SEA',
+      // EA (East Asia)
+      'China':'EA','Japan':'EA','Korea':'EA','South Korea':'EA','Taiwan':'EA','Hong Kong':'EA','Macau':'EA','Macao':'EA','Mongolia':'EA','North Korea':'EA',
+      // SA (South Asia)
+      'India':'SA','Pakistan':'SA','Bangladesh':'SA','Sri Lanka':'SA','Nepal':'SA','Afghanistan':'SA','Bhutan':'SA','Maldives':'SA',
+      // CIS (Commonwealth of Independent States)
+      'Russia':'CIS','Ukraine':'CIS','Kazakhstan':'CIS','Uzbekistan':'CIS','Kyrgyzstan':'CIS','Tajikistan':'CIS','Turkmenistan':'CIS','Azerbaijan':'CIS','Armenia':'CIS','Georgia':'CIS',
+      // AF (Africa - MENA 제외)
+      'South Africa':'AF','Nigeria':'AF','South Sudan':'AF','Ethiopia':'AF','Kenya':'AF','Tanzania':'AF','Uganda':'AF','Ghana':'AF','Ivory Coast':'AF','Côte dIvoire':'AF','Senegal':'AF','Cameroon':'AF','Angola':'AF','Mozambique':'AF','Madagascar':'AF','Zimbabwe':'AF','Zambia':'AF','Malawi':'AF','Rwanda':'AF','Burundi':'AF','Somalia':'AF','Djibouti':'AF','Eritrea':'AF','Mali':'AF','Burkina Faso':'AF','Niger':'AF','Chad':'AF','Central African Republic':'AF','Congo':'AF','DR Congo':'AF','Gabon':'AF','Equatorial Guinea':'AF','Sao Tome':'AF','Sao Tome and Principe':'AF','Guinea':'AF','Sierra Leone':'AF','Liberia':'AF','Togo':'AF','Benin':'AF','Mauritius':'AF','Seychelles':'AF','Comoros':'AF','Cape Verde':'AF','Guinea-Bissau':'AF','Gambia':'AF','Lesotho':'AF','Swaziland':'AF','Botswana':'AF','Namibia':'AF','Reunion':'AF',
+      // OCE (Oceania)
+      'Australia':'OCE','New Zealand':'OCE','Papua New Guinea':'OCE','Fiji':'OCE','Fiji Islands':'OCE','Solomon Islands':'OCE','Vanuatu':'OCE','Samoa':'OCE','Tonga':'OCE','Palau':'OCE','Micronesia':'OCE','Federated States of Micronesia':'OCE','Marshall Islands':'OCE','Norfolk Island':'OCE','Christmas Island':'OCE','Cocos Islands':'OCE','French Polynesia':'OCE','New Caledonia':'OCE','Cook Islands':'OCE','Guam':'OCE','Northern Mariana Islands':'OCE','Niue':'OCE'
     };
 
     const getContinent = (c)=> countryToContinent[c] || 'OTHER';
@@ -499,27 +531,66 @@
     function calculateStats(data){
       const avgTraffic=[], change=[], lastDayTraffic=[];
       const {Country, allDates, trafficByDate} = data;
-      const comparisonType = document.getElementById('comparisonType').value || 'DoD';
+      const comparisonType = document.getElementById('comparisonType').value || 'WoW';
       
       // 마지막 날짜 찾기
       const lastDate = allDates.length > 0 ? new Date(allDates[allDates.length - 1]) : null;
       
       for(let i=0;i<Country.length;i++){
-        // 각 국가의 모든 날짜 평균 계산 (A.DAU)
-        let sum = 0;
-        let count = 0;
-        allDates.forEach(date => {
-          if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
-            sum += trafficByDate[date][i];
-            count++;
-          }
-        });
-        const avgValue = count > 0 ? sum / count : 0;
-        avgTraffic.push(avgValue);
-        
-        // 마지막 날 트래픽 (표시용)
+        // 마지막 날 트래픽
         const lastDayValue = (lastDate && trafficByDate[allDates[allDates.length - 1]] && trafficByDate[allDates[allDates.length - 1]][i]) || 0;
         lastDayTraffic.push(lastDayValue);
+        
+        // 비교 타입에 따라 표시할 트래픽 값 계산
+        let displayTraffic = 0;
+        
+        if(comparisonType === 'WoW' && lastDate && !isNaN(lastDate)){
+          // WoW: 현재 주의 월~토 평균
+          const lastDayOfWeek = lastDate.getDay();
+          const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1;
+          const currentWeekMonday = new Date(lastDate);
+          currentWeekMonday.setDate(lastDate.getDate() - daysFromMonday);
+          currentWeekMonday.setHours(0, 0, 0, 0);
+          const currentWeekEnd = new Date(currentWeekMonday);
+          currentWeekEnd.setDate(currentWeekMonday.getDate() + 5);
+          currentWeekEnd.setHours(23, 59, 59, 999);
+          
+          const currentWeekDates = allDates.filter(d => {
+            const dObj = new Date(d);
+            dObj.setHours(0, 0, 0, 0);
+            return dObj >= currentWeekMonday && dObj <= currentWeekEnd;
+          });
+          
+          if(currentWeekDates.length > 0){
+            let currentWeekSum = 0;
+            let currentWeekCount = 0;
+            currentWeekDates.forEach(date => {
+              if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+                currentWeekSum += trafficByDate[date][i];
+                currentWeekCount++;
+              }
+            });
+            displayTraffic = currentWeekCount > 0 ? currentWeekSum / currentWeekCount : lastDayValue;
+          } else {
+            displayTraffic = lastDayValue;
+          }
+        } else if(comparisonType === 'DoD'){
+          // DoD: 마지막 날 트래픽
+          displayTraffic = lastDayValue;
+        } else {
+          // MoM, YoY: 전체 기간 평균 (A.DAU)
+          let sum = 0;
+          let count = 0;
+          allDates.forEach(date => {
+            if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+              sum += trafficByDate[date][i];
+              count++;
+            }
+          });
+          displayTraffic = count > 0 ? sum / count : lastDayValue;
+        }
+        
+        avgTraffic.push(displayTraffic);
         
         // 비교 기준일 찾기
         let compareDate = null;
@@ -540,22 +611,82 @@
               break;
               
             case 'WoW':
-              // Week over Week: 7일 전
-              compareDateObj.setDate(compareDateObj.getDate() - 7);
-              compareDate = `${compareDateObj.getFullYear()}-${String(compareDateObj.getMonth()+1).padStart(2,'0')}-${String(compareDateObj.getDate()).padStart(2,'0')}`;
-              // 가장 가까운 날짜 찾기 (정확히 7일 전이 없을 수 있음)
-              const wowDates = allDates.filter(d => {
+              // Week over Week: 월~토 기준 직전주 비교
+              // 최신 날짜의 요일 확인 (0=일, 1=월, ..., 6=토)
+              const lastDayOfWeek = compareDateObj.getDay();
+              
+              // 최신 날짜가 속한 주의 월요일 찾기
+              const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1; // 일요일이면 6일 전이 월요일
+              const currentWeekMonday = new Date(compareDateObj);
+              currentWeekMonday.setDate(compareDateObj.getDate() - daysFromMonday);
+              currentWeekMonday.setHours(0, 0, 0, 0);
+              
+              // 직전 주의 월요일 찾기 (7일 전)
+              const prevWeekMonday = new Date(currentWeekMonday);
+              prevWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+              
+              // 직전 주의 월~토 범위 (월요일부터 토요일까지)
+              const prevWeekStart = new Date(prevWeekMonday);
+              prevWeekStart.setHours(0, 0, 0, 0);
+              const prevWeekEnd = new Date(prevWeekMonday);
+              prevWeekEnd.setDate(prevWeekMonday.getDate() + 5); // 월~토 (6일)
+              prevWeekEnd.setHours(23, 59, 59, 999);
+              
+              // 직전 주의 월~토 데이터가 있는지 확인하고 평균 계산
+              const prevWeekDates = allDates.filter(d => {
                 const dObj = new Date(d);
-                const diff = Math.abs((dObj - compareDateObj) / (1000 * 60 * 60 * 24));
-                return diff <= 1; // 1일 이내 차이
+                dObj.setHours(0, 0, 0, 0);
+                return dObj >= prevWeekStart && dObj <= prevWeekEnd;
               });
-              if(wowDates.length > 0){
-                const closestDate = wowDates.sort((a,b) => {
-                  const aDiff = Math.abs((new Date(a) - compareDateObj) / (1000 * 60 * 60 * 24));
-                  const bDiff = Math.abs((new Date(b) - compareDateObj) / (1000 * 60 * 60 * 24));
+              
+              if(prevWeekDates.length > 0){
+                // 직전 주의 평균 트래픽 계산
+                let prevWeekSum = 0;
+                let prevWeekCount = 0;
+                prevWeekDates.forEach(date => {
+                  if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+                    prevWeekSum += trafficByDate[date][i];
+                    prevWeekCount++;
+                  }
+                });
+                
+                if(prevWeekCount > 0){
+                  compareValue = prevWeekSum / prevWeekCount;
+                } else {
+                  // 평균을 구할 수 없으면 동일한 요일의 값 사용
+                  const prevWeekSameDay = new Date(prevWeekMonday);
+                  prevWeekSameDay.setDate(prevWeekMonday.getDate() + daysFromMonday);
+                  const prevWeekSameDayStr = `${prevWeekSameDay.getFullYear()}-${String(prevWeekSameDay.getMonth()+1).padStart(2,'0')}-${String(prevWeekSameDay.getDate()).padStart(2,'0')}`;
+                  const closestDate = allDates.filter(d => {
+                    const dObj = new Date(d);
+                    const diff = Math.abs((dObj - prevWeekSameDay) / (1000 * 60 * 60 * 24));
+                    return diff <= 1;
+                  }).sort((a,b) => {
+                    const aDiff = Math.abs((new Date(a) - prevWeekSameDay) / (1000 * 60 * 60 * 24));
+                    const bDiff = Math.abs((new Date(b) - prevWeekSameDay) / (1000 * 60 * 60 * 24));
+                    return aDiff - bDiff;
+                  })[0];
+                  
+                  if(closestDate && trafficByDate[closestDate] && trafficByDate[closestDate][i] !== undefined){
+                    compareValue = trafficByDate[closestDate][i];
+                  }
+                }
+              } else {
+                // 직전 주 데이터가 없으면 동일한 요일의 값 사용
+                const prevWeekSameDay = new Date(prevWeekMonday);
+                prevWeekSameDay.setDate(prevWeekMonday.getDate() + daysFromMonday);
+                const prevWeekSameDayStr = `${prevWeekSameDay.getFullYear()}-${String(prevWeekSameDay.getMonth()+1).padStart(2,'0')}-${String(prevWeekSameDay.getDate()).padStart(2,'0')}`;
+                const closestDate = allDates.filter(d => {
+                  const dObj = new Date(d);
+                  const diff = Math.abs((dObj - prevWeekSameDay) / (1000 * 60 * 60 * 24));
+                  return diff <= 1;
+                }).sort((a,b) => {
+                  const aDiff = Math.abs((new Date(a) - prevWeekSameDay) / (1000 * 60 * 60 * 24));
+                  const bDiff = Math.abs((new Date(b) - prevWeekSameDay) / (1000 * 60 * 60 * 24));
                   return aDiff - bDiff;
                 })[0];
-                if(trafficByDate[closestDate] && trafficByDate[closestDate][i] !== undefined){
+                
+                if(closestDate && trafficByDate[closestDate] && trafficByDate[closestDate][i] !== undefined){
                   compareValue = trafficByDate[closestDate][i];
                 }
               }
@@ -607,9 +738,44 @@
           }
         }
         
-        // 변화율 계산 (마지막 날 기준)
-        if(compareValue !== null && compareValue > 0 && lastDayValue > 0){
-          change.push(((lastDayValue - compareValue) / compareValue) * 100);
+        // 변화율 계산
+        // WoW의 경우: 현재 주 평균 vs 직전 주 평균
+        // 다른 경우: 마지막 날 vs 비교일
+        let currentValue = lastDayValue;
+        if(comparisonType === 'WoW' && lastDate && !isNaN(lastDate)){
+          // 현재 주의 월~토 평균 계산
+          const lastDayOfWeek = lastDate.getDay();
+          const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1;
+          const currentWeekMonday = new Date(lastDate);
+          currentWeekMonday.setDate(lastDate.getDate() - daysFromMonday);
+          currentWeekMonday.setHours(0, 0, 0, 0);
+          const currentWeekEnd = new Date(currentWeekMonday);
+          currentWeekEnd.setDate(currentWeekMonday.getDate() + 5); // 월~토
+          currentWeekEnd.setHours(23, 59, 59, 999);
+          
+          const currentWeekDates = allDates.filter(d => {
+            const dObj = new Date(d);
+            dObj.setHours(0, 0, 0, 0);
+            return dObj >= currentWeekMonday && dObj <= currentWeekEnd;
+          });
+          
+          if(currentWeekDates.length > 0){
+            let currentWeekSum = 0;
+            let currentWeekCount = 0;
+            currentWeekDates.forEach(date => {
+              if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+                currentWeekSum += trafficByDate[date][i];
+                currentWeekCount++;
+              }
+            });
+            if(currentWeekCount > 0){
+              currentValue = currentWeekSum / currentWeekCount;
+            }
+          }
+        }
+        
+        if(compareValue !== null && compareValue > 0 && currentValue > 0){
+          change.push(((currentValue - compareValue) / compareValue) * 100);
         } else {
           change.push(0);
         }
@@ -656,9 +822,173 @@
           change: change[i]
         }));
       
+      // 권역별 트래픽 집계 (현재 기간과 비교 기간 모두 계산)
+      const regionStats = {};
+      const regionCompareStats = {};
+      let totalTraffic = 0;
+      
+      allCountries.forEach((country, i) => {
+        const continent = getContinent(country);
+        if(!regionStats[continent]){
+          regionStats[continent] = {
+            traffic: 0,
+            compareTraffic: 0
+          };
+          regionCompareStats[continent] = {
+            traffic: 0,
+            compareTraffic: 0
+          };
+        }
+        
+        // 현재 기간 트래픽 (avgTraffic 사용 - 비교 타입에 따라 다름)
+        regionStats[continent].traffic += avgTraffic[i];
+        totalTraffic += avgTraffic[i];
+        
+        // 비교 기간 트래픽 계산
+        let compareTrafficValue = 0;
+        if(comparisonType === 'WoW' && lastDate && !isNaN(lastDate)){
+          // WoW: 직전 주 평균
+          const lastDayOfWeek = lastDate.getDay();
+          const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1;
+          const currentWeekMonday = new Date(lastDate);
+          currentWeekMonday.setDate(lastDate.getDate() - daysFromMonday);
+          currentWeekMonday.setHours(0, 0, 0, 0);
+          const prevWeekMonday = new Date(currentWeekMonday);
+          prevWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+          const prevWeekEnd = new Date(prevWeekMonday);
+          prevWeekEnd.setDate(prevWeekMonday.getDate() + 5);
+          prevWeekEnd.setHours(23, 59, 59, 999);
+          
+          const prevWeekDates = allDates.filter(d => {
+            const dObj = new Date(d);
+            dObj.setHours(0, 0, 0, 0);
+            return dObj >= prevWeekMonday && dObj <= prevWeekEnd;
+          });
+          
+          if(prevWeekDates.length > 0){
+            let prevWeekSum = 0;
+            let prevWeekCount = 0;
+            prevWeekDates.forEach(date => {
+              if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+                prevWeekSum += trafficByDate[date][i];
+                prevWeekCount++;
+              }
+            });
+            compareTrafficValue = prevWeekCount > 0 ? prevWeekSum / prevWeekCount : 0;
+          }
+        } else if(comparisonType === 'DoD'){
+          // DoD: 마지막-1일
+          if(allDates.length >= 2){
+            const prevDate = allDates[allDates.length - 2];
+            compareTrafficValue = (trafficByDate[prevDate] && trafficByDate[prevDate][i] !== undefined) ? trafficByDate[prevDate][i] : 0;
+          }
+        } else {
+          // MoM, YoY: 비교일 트래픽 (개별 국가 change 계산 로직과 동일하게)
+          if(lastDate && !isNaN(lastDate)){
+            const compareDateObj = new Date(lastDate);
+            let compareValue = null;
+            
+            if(comparisonType === 'MoM'){
+              compareDateObj.setMonth(compareDateObj.getMonth() - 1);
+              const momDates = allDates.filter(d => {
+                const dObj = new Date(d);
+                const diff = Math.abs((dObj - compareDateObj) / (1000 * 60 * 60 * 24));
+                return diff <= 3;
+              });
+              if(momDates.length > 0){
+                const closestDate = momDates.sort((a,b) => {
+                  const aDiff = Math.abs((new Date(a) - compareDateObj) / (1000 * 60 * 60 * 24));
+                  const bDiff = Math.abs((new Date(b) - compareDateObj) / (1000 * 60 * 60 * 24));
+                  return aDiff - bDiff;
+                })[0];
+                if(trafficByDate[closestDate] && trafficByDate[closestDate][i] !== undefined){
+                  compareValue = trafficByDate[closestDate][i];
+                }
+              }
+            } else if(comparisonType === 'YoY'){
+              compareDateObj.setFullYear(compareDateObj.getFullYear() - 1);
+              const yoyDates = allDates.filter(d => {
+                const dObj = new Date(d);
+                const diff = Math.abs((dObj - compareDateObj) / (1000 * 60 * 60 * 24));
+                return diff <= 7;
+              });
+              if(yoyDates.length > 0){
+                const closestDate = yoyDates.sort((a,b) => {
+                  const aDiff = Math.abs((new Date(a) - compareDateObj) / (1000 * 60 * 60 * 24));
+                  const bDiff = Math.abs((new Date(b) - compareDateObj) / (1000 * 60 * 60 * 24));
+                  return aDiff - bDiff;
+                })[0];
+                if(trafficByDate[closestDate] && trafficByDate[closestDate][i] !== undefined){
+                  compareValue = trafficByDate[closestDate][i];
+                }
+              }
+            }
+            compareTrafficValue = compareValue !== null ? compareValue : 0;
+          }
+        }
+        
+        regionStats[continent].compareTraffic += compareTrafficValue;
+      });
+      
+      // 권역별 데이터 정리 (트래픽 큰 순서대로)
+      const regionTrafficList = Object.keys(regionStats).map(region => {
+        const currentTraffic = regionStats[region].traffic;
+        const compareTraffic = regionStats[region].compareTraffic;
+        const regionChange = (compareTraffic > 0 && currentTraffic > 0) 
+          ? ((currentTraffic - compareTraffic) / compareTraffic) * 100 
+          : 0;
+        
+        return {
+          region: region,
+          traffic: currentTraffic,
+          share: totalTraffic > 0 ? (currentTraffic / totalTraffic) * 100 : 0,
+          avgChange: regionChange
+        };
+      }).sort((a,b) => b.traffic - a.traffic);
+      
+      // 비교 구간 정보 계산
+      let comparisonRangeText = '';
+      if(allDates.length > 0){
+        const lastDate = new Date(allDates[allDates.length - 1]);
+        const comparisonType = document.getElementById('comparisonType').value || 'WoW';
+        
+        if(comparisonType === 'DoD'){
+          if(allDates.length >= 2){
+            const prevDate = new Date(allDates[allDates.length - 2]);
+            const formatDate = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+            comparisonRangeText = `비교 구간: ${formatDate(prevDate)} vs ${formatDate(lastDate)}`;
+          }
+        } else if(comparisonType === 'WoW'){
+          const lastDayOfWeek = lastDate.getDay();
+          const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1;
+          const currentWeekMonday = new Date(lastDate);
+          currentWeekMonday.setDate(lastDate.getDate() - daysFromMonday);
+          const currentWeekEnd = new Date(currentWeekMonday);
+          currentWeekEnd.setDate(currentWeekMonday.getDate() + 5);
+          
+          const prevWeekMonday = new Date(currentWeekMonday);
+          prevWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+          const prevWeekEnd = new Date(prevWeekMonday);
+          prevWeekEnd.setDate(prevWeekMonday.getDate() + 5);
+          
+          const formatDate = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+          comparisonRangeText = `비교 구간: ${formatDate(prevWeekMonday)}~${formatDate(prevWeekEnd)} vs ${formatDate(currentWeekMonday)}~${formatDate(currentWeekEnd)} (WoW)`;
+        } else if(comparisonType === 'MoM'){
+          const prevMonth = new Date(lastDate);
+          prevMonth.setMonth(lastDate.getMonth() - 1);
+          const formatDate = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+          comparisonRangeText = `비교 구간: ${formatDate(prevMonth)} vs ${formatDate(lastDate)} (MoM)`;
+        } else if(comparisonType === 'YoY'){
+          const prevYear = new Date(lastDate);
+          prevYear.setFullYear(lastDate.getFullYear() - 1);
+          const formatDate = (d) => `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+          comparisonRangeText = `비교 구간: ${formatDate(prevYear)} vs ${formatDate(lastDate)} (YoY)`;
+        }
+      }
+      
       return {topCountries, topRevenue, topChange, avgDAU, avgChange,
               maxChange:Math.max(...topChange), minChange:Math.min(...topChange),
-              maxChangeCountry, minChangeCountry, trafficTop10};
+              maxChangeCountry, minChangeCountry, trafficTop10, comparisonRangeText, regionTrafficList};
     }
 
     // ---------- Render ----------
@@ -675,13 +1005,13 @@
         const groupBy=document.getElementById('groupByContinent').checked;
 
         // KPIs
-        const comparisonType = document.getElementById('comparisonType').value || 'DoD';
+        const comparisonType = document.getElementById('comparisonType').value || 'WoW';
         const comparisonLabel = {
           'DoD': '전일 대비',
-          'WoW': '주간 대비',
+          'WoW': '주간 대비 (월~토 기준)',
           'MoM': '월간 대비',
           'YoY': '연간 대비'
-        }[comparisonType] || '전일 대비';
+        }[comparisonType] || '주간 대비 (월~토 기준)';
         
             document.getElementById('stats').innerHTML = `
           <div class="stat-item"><div class="stat-label">A.DAU (Average DAU)</div><div class="stat-value">${(stats.avgDAU/1e6).toFixed(2)}M</div></div>
@@ -692,14 +1022,70 @@
         // Traffic Top 10 표 제목 업데이트 (평균 DAU 기준)
         const top10Title = document.getElementById('trafficTop10Title');
         if(top10Title){
-          const comparisonType = document.getElementById('comparisonType').value || 'DoD';
+          const comparisonType = document.getElementById('comparisonType').value || 'WoW';
           const comparisonLabel = {
             'DoD': '전일 대비',
-            'WoW': '주간 대비',
+            'WoW': '주간 대비 (월~토 기준)',
             'MoM': '월간 대비',
             'YoY': '연간 대비'
-          }[comparisonType] || '전일 대비';
+          }[comparisonType] || '주간 대비 (월~토 기준)';
           top10Title.textContent = `Traffic Top 10 (A.DAU 기준, ${comparisonLabel})`;
+        }
+        
+        // 비교 구간 정보 표시
+        const comparisonRange = document.getElementById('comparisonRange');
+        if(comparisonRange && stats.comparisonRangeText){
+          comparisonRange.textContent = stats.comparisonRangeText;
+        } else if(comparisonRange){
+          comparisonRange.textContent = '';
+        }
+        
+        // 권역별 트래픽 표 제목 업데이트
+        const regionTrafficTitle = document.getElementById('regionTrafficTitle');
+        if(regionTrafficTitle){
+          const comparisonType = document.getElementById('comparisonType').value || 'WoW';
+          let titleSuffix = '';
+          if(comparisonType === 'WoW'){
+            titleSuffix = ' (현재 주 월~토 평균 기준)';
+          } else if(comparisonType === 'DoD'){
+            titleSuffix = ' (마지막 날 기준)';
+          } else {
+            titleSuffix = ' (전체 기간 평균 기준)';
+          }
+          regionTrafficTitle.textContent = `권역별 트래픽 비중${titleSuffix}`;
+        }
+        
+        // 권역별 트래픽 표 업데이트
+        const regionTrafficBody = document.getElementById('regionTrafficBody');
+        if(regionTrafficBody && stats.regionTrafficList){
+          // GL 총합 계산
+          const glTotal = stats.regionTrafficList.reduce((sum, item) => sum + item.traffic, 0);
+          const glAvgChange = stats.regionTrafficList.length > 0 
+            ? stats.regionTrafficList.reduce((sum, item) => sum + (item.avgChange * item.traffic), 0) / glTotal
+            : 0;
+          
+          const glChangeColor = glAvgChange >= 0 ? '#00ff00' : '#ff4d4d';
+          const glChangeSign = glAvgChange >= 0 ? '+' : '';
+          
+          regionTrafficBody.innerHTML = stats.regionTrafficList.map((item, idx) => {
+            const changeColor = item.avgChange >= 0 ? '#00ff00' : '#ff4d4d';
+            const changeSign = item.avgChange >= 0 ? '+' : '';
+            return `
+              <tr style="border-bottom:1px solid var(--border);${idx % 2 === 0 ? 'background:rgba(255,255,255,0.02)' : ''}">
+                <td style="padding:14px;font-size:16px;color:#fff;font-weight:600">${item.region}</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:#fff">${Math.round(item.traffic).toLocaleString()}</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:600">${item.share.toFixed(2)}%</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:${changeColor};font-weight:600">${changeSign}${item.avgChange.toFixed(2)}%</td>
+              </tr>
+            `;
+          }).join('') + `
+              <tr style="border-top:2px solid var(--border);background:rgba(46,160,67,0.1);">
+                <td style="padding:14px;font-size:16px;color:#fff;font-weight:700">GL (Global)</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:700">${Math.round(glTotal).toLocaleString()}</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:700">100.00%</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:${glChangeColor};font-weight:700">${glChangeSign}${glAvgChange.toFixed(2)}%</td>
+              </tr>
+            `;
         }
         
         // Traffic Top 10 표 업데이트
