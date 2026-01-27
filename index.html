@@ -36,6 +36,8 @@
     .badge{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:linear-gradient(135deg,#161b22,#1c2128);font-size:12px}
     .badge[data-tip]{position:relative}
     .badge[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 10px);white-space:nowrap;background:#161b22;color:#fff;padding:8px 10px;border-radius:8px;border:1px solid var(--border)}
+    .tab-button.active{color:#fff !important;border-bottom-color:#238636 !important}
+    .tab-content{display:block}
     @media (max-width:768px){.header{padding:14px}.content{padding:12px}}
     </style>
 </head>
@@ -82,6 +84,14 @@
         </div>
         
         <div class="content">
+            <!-- 탭 네비게이션 -->
+            <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--border)">
+              <button id="tabTreemap" class="tab-button active" style="padding:12px 20px;background:var(--panel);border:none;border-bottom:2px solid #238636;color:#fff;font-weight:600;cursor:pointer;font-size:14px">Treemap</button>
+              <button id="tabWeeklyChart" class="tab-button" style="padding:12px 20px;background:var(--panel);border:none;border-bottom:2px solid transparent;color:var(--muted);font-weight:600;cursor:pointer;font-size:14px">Weekly Chart</button>
+            </div>
+            
+            <!-- Treemap 탭 컨텐츠 -->
+            <div id="treemapTab" class="tab-content">
             <div class="stats-grid" id="stats"></div>
       <div id="comparisonRange" style="font-size:16px;color:#fff;margin-bottom:16px;padding:14px;background:var(--panel);border-radius:8px;border:1px solid var(--border);text-align:center;font-weight:700;letter-spacing:0.5px"></div>
       <div id="treemap">
@@ -133,10 +143,11 @@
                 <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">Traffic</th>
                 <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">비중</th>
                 <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">Avg Change</th>
+                <th style="padding:12px;text-align:right;font-size:14px;color:var(--muted);font-weight:600">전주 대비 비중 변화</th>
               </tr>
             </thead>
             <tbody id="regionTrafficBody">
-              <tr><td colspan="4" style="padding:16px;text-align:center;color:var(--muted);font-size:14px">Loading...</td></tr>
+              <tr><td colspan="5" style="padding:16px;text-align:center;color:var(--muted);font-size:14px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -159,6 +170,22 @@
           </table>
         </div>
       </div>
+            </div>
+            
+            <!-- Weekly Chart 탭 컨텐츠 -->
+            <div id="weeklyChartTab" class="tab-content" style="display:none">
+              <div style="padding:16px;background:var(--panel);border:1px solid var(--border);border-radius:8px;margin-bottom:16px">
+                <label style="display:flex;align-items:center;gap:12px">
+                  <strong style="color:var(--muted);font-size:14px">국가 선택:</strong>
+                  <select id="countrySelect" style="padding:8px 12px;border:1px solid var(--border);background:var(--bg);color:#fff;border-radius:6px;font-size:14px;min-width:200px">
+                    <option value="">국가를 선택하세요</option>
+                  </select>
+                </label>
+              </div>
+              <div id="weeklyChart" style="width:100%;min-height:600px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:16px">
+                <div style="text-align:center;color:var(--muted);padding:40px">국가를 선택하면 주별 트래픽 차트가 표시됩니다.</div>
+              </div>
+            </div>
         </div>
         
     <div class="footer" style="padding:14px;background:var(--panel);border-top:1px solid var(--border);color:var(--muted);text-align:center;font-size:12px">
@@ -314,7 +341,8 @@
           if(p){ 
             currentData=p; 
             document.getElementById('status').textContent='CSV Loaded'; 
-            createTreemap(currentData); 
+            createTreemap(currentData);
+            updateCountrySelect();
           } 
         },
         error:(e)=> alert('Error reading CSV: '+e)
@@ -402,6 +430,7 @@
         currentData = p;
         document.getElementById('status').textContent = `CSV Loaded (${filteredRows.length} rows, ${startDate} ~ ${endDate})`;
         createTreemap(currentData);
+        updateCountrySelect();
       }
     });
     
@@ -415,6 +444,7 @@
           currentData = p;
           document.getElementById('status').textContent = 'CSV Loaded';
           createTreemap(currentData);
+          updateCountrySelect();
         }
       }
     });
@@ -825,6 +855,7 @@
       // 권역별 트래픽 집계 (현재 기간과 비교 기간 모두 계산)
       const regionStats = {};
       const regionCompareStats = {};
+      const regionWoWStats = {}; // 전주 대비 증감률용 (항상 WoW 기준)
       let totalTraffic = 0;
       
       allCountries.forEach((country, i) => {
@@ -837,6 +868,10 @@
           regionCompareStats[continent] = {
             traffic: 0,
             compareTraffic: 0
+          };
+          regionWoWStats[continent] = {
+            currentWeekTraffic: 0,
+            prevWeekTraffic: 0
           };
         }
         
@@ -928,7 +963,72 @@
         }
         
         regionStats[continent].compareTraffic += compareTrafficValue;
+        
+        // 전주 대비 증감률 계산 (항상 WoW 기준)
+        if(lastDate && !isNaN(lastDate)){
+          const lastDayOfWeek = lastDate.getDay();
+          const daysFromMonday = (lastDayOfWeek === 0) ? 6 : lastDayOfWeek - 1;
+          const currentWeekMonday = new Date(lastDate);
+          currentWeekMonday.setDate(lastDate.getDate() - daysFromMonday);
+          currentWeekMonday.setHours(0, 0, 0, 0);
+          const currentWeekEnd = new Date(currentWeekMonday);
+          currentWeekEnd.setDate(currentWeekMonday.getDate() + 5);
+          currentWeekEnd.setHours(23, 59, 59, 999);
+          
+          const prevWeekMonday = new Date(currentWeekMonday);
+          prevWeekMonday.setDate(currentWeekMonday.getDate() - 7);
+          const prevWeekEnd = new Date(prevWeekMonday);
+          prevWeekEnd.setDate(prevWeekMonday.getDate() + 5);
+          prevWeekEnd.setHours(23, 59, 59, 999);
+          
+          // 현재 주 평균 계산
+          const currentWeekDates = allDates.filter(d => {
+            const dObj = new Date(d);
+            dObj.setHours(0, 0, 0, 0);
+            return dObj >= currentWeekMonday && dObj <= currentWeekEnd;
+          });
+          
+          let currentWeekSum = 0;
+          let currentWeekCount = 0;
+          currentWeekDates.forEach(date => {
+            if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+              currentWeekSum += trafficByDate[date][i];
+              currentWeekCount++;
+            }
+          });
+          const currentWeekAvg = currentWeekCount > 0 ? currentWeekSum / currentWeekCount : 0;
+          
+          // 전주 평균 계산
+          const prevWeekDates = allDates.filter(d => {
+            const dObj = new Date(d);
+            dObj.setHours(0, 0, 0, 0);
+            return dObj >= prevWeekMonday && dObj <= prevWeekEnd;
+          });
+          
+          let prevWeekSum = 0;
+          let prevWeekCount = 0;
+          prevWeekDates.forEach(date => {
+            if(trafficByDate[date] && trafficByDate[date][i] !== undefined){
+              prevWeekSum += trafficByDate[date][i];
+              prevWeekCount++;
+            }
+          });
+          const prevWeekAvg = prevWeekCount > 0 ? prevWeekSum / prevWeekCount : 0;
+          
+          regionWoWStats[continent].currentWeekTraffic += currentWeekAvg;
+          regionWoWStats[continent].prevWeekTraffic += prevWeekAvg;
+        }
       });
+      
+      // 전주 전체 트래픽 합계 계산 (비중 변화 계산용)
+      const totalPrevWeekTraffic = Object.keys(regionWoWStats).reduce((sum, region) => {
+        return sum + regionWoWStats[region].prevWeekTraffic;
+      }, 0);
+      
+      // 현재 주 전체 트래픽 합계 계산 (WoW 기준, 비중 변화 계산용)
+      const totalCurrentWeekTraffic = Object.keys(regionWoWStats).reduce((sum, region) => {
+        return sum + regionWoWStats[region].currentWeekTraffic;
+      }, 0);
       
       // 권역별 데이터 정리 (트래픽 큰 순서대로)
       const regionTrafficList = Object.keys(regionStats).map(region => {
@@ -938,11 +1038,32 @@
           ? ((currentTraffic - compareTraffic) / compareTraffic) * 100 
           : 0;
         
+        // 전주 대비 증감률 계산 (WoW 기준)
+        const wowCurrent = regionWoWStats[region].currentWeekTraffic;
+        const wowPrev = regionWoWStats[region].prevWeekTraffic;
+        const wowChange = (wowPrev > 0 && wowCurrent > 0) 
+          ? ((wowCurrent - wowPrev) / wowPrev) * 100 
+          : 0;
+        
+        // 현재 비중 (표시용 - comparisonType에 따라 다름)
+        const currentShare = totalTraffic > 0 ? (currentTraffic / totalTraffic) * 100 : 0;
+        
+        // WoW 기준 현재 주 비중 (비중 변화 계산용)
+        const currentWeekShare = totalCurrentWeekTraffic > 0 ? (wowCurrent / totalCurrentWeekTraffic) * 100 : 0;
+        
+        // 전주 비중 (WoW 기준)
+        const prevShare = totalPrevWeekTraffic > 0 ? (wowPrev / totalPrevWeekTraffic) * 100 : 0;
+        
+        // 전주 대비 비중 변화 (퍼센트 포인트) - WoW 기준
+        const shareChange = currentWeekShare - prevShare;
+        
         return {
           region: region,
           traffic: currentTraffic,
-          share: totalTraffic > 0 ? (currentTraffic / totalTraffic) * 100 : 0,
-          avgChange: regionChange
+          share: currentShare,
+          avgChange: regionChange,
+          wowChange: wowChange,
+          shareChange: shareChange
         };
       }).sort((a,b) => b.traffic - a.traffic);
       
@@ -1055,6 +1176,19 @@
           regionTrafficTitle.textContent = `권역별 트래픽 비중${titleSuffix}`;
         }
         
+        // 권역별 트래픽 표 헤더의 Avg Change 업데이트
+        const avgChangeHeader = document.querySelector('#regionTraffic thead th:nth-child(4)');
+        if(avgChangeHeader){
+          const comparisonType = document.getElementById('comparisonType').value || 'WoW';
+          const comparisonLabel = {
+            'DoD': '전일 대비',
+            'WoW': '주간 대비',
+            'MoM': '월간 대비',
+            'YoY': '연간 대비'
+          }[comparisonType] || '주간 대비';
+          avgChangeHeader.textContent = `Avg Change (${comparisonLabel})`;
+        }
+        
         // 권역별 트래픽 표 업데이트
         const regionTrafficBody = document.getElementById('regionTrafficBody');
         if(regionTrafficBody && stats.regionTrafficList){
@@ -1067,15 +1201,23 @@
           const glChangeColor = glAvgChange >= 0 ? '#00ff00' : '#ff4d4d';
           const glChangeSign = glAvgChange >= 0 ? '+' : '';
           
+          // GL 비중 변화는 항상 0%p (전체 합계는 항상 100%)
+          const glShareChange = 0;
+          const glShareChangeColor = '#414554'; // 중립 색상
+          const glShareChangeSign = '';
+          
           regionTrafficBody.innerHTML = stats.regionTrafficList.map((item, idx) => {
             const changeColor = item.avgChange >= 0 ? '#00ff00' : '#ff4d4d';
             const changeSign = item.avgChange >= 0 ? '+' : '';
+            const shareChangeColor = item.shareChange >= 0 ? '#00ff00' : '#ff4d4d';
+            const shareChangeSign = item.shareChange >= 0 ? '+' : '';
             return `
               <tr style="border-bottom:1px solid var(--border);${idx % 2 === 0 ? 'background:rgba(255,255,255,0.02)' : ''}">
                 <td style="padding:14px;font-size:16px;color:#fff;font-weight:600">${item.region}</td>
                 <td style="padding:14px;text-align:right;font-size:16px;color:#fff">${Math.round(item.traffic).toLocaleString()}</td>
                 <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:600">${item.share.toFixed(2)}%</td>
                 <td style="padding:14px;text-align:right;font-size:16px;color:${changeColor};font-weight:600">${changeSign}${item.avgChange.toFixed(2)}%</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:${shareChangeColor};font-weight:600">${shareChangeSign}${item.shareChange.toFixed(2)}%p</td>
               </tr>
             `;
           }).join('') + `
@@ -1084,6 +1226,7 @@
                 <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:700">${Math.round(glTotal).toLocaleString()}</td>
                 <td style="padding:14px;text-align:right;font-size:16px;color:#fff;font-weight:700">100.00%</td>
                 <td style="padding:14px;text-align:right;font-size:16px;color:${glChangeColor};font-weight:700">${glChangeSign}${glAvgChange.toFixed(2)}%</td>
+                <td style="padding:14px;text-align:right;font-size:16px;color:${glShareChangeColor};font-weight:700">${glShareChangeSign}${glShareChange.toFixed(2)}%p</td>
               </tr>
             `;
         }
@@ -1201,10 +1344,307 @@
       }, 40);
     }
 
+    // ---------- 탭 전환 ----------
+    document.getElementById('tabTreemap').addEventListener('click', ()=>{
+      document.getElementById('treemapTab').style.display = 'block';
+      document.getElementById('weeklyChartTab').style.display = 'none';
+      document.getElementById('tabTreemap').classList.add('active');
+      document.getElementById('tabWeeklyChart').classList.remove('active');
+    });
+    
+    document.getElementById('tabWeeklyChart').addEventListener('click', ()=>{
+      document.getElementById('treemapTab').style.display = 'none';
+      document.getElementById('weeklyChartTab').style.display = 'block';
+      document.getElementById('tabTreemap').classList.remove('active');
+      document.getElementById('tabWeeklyChart').classList.add('active');
+      updateCountrySelect();
+    });
+    
+    // ---------- 주차 계산 함수 ----------
+    function getWeekOfMonth(date) {
+      const d = new Date(date);
+      const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
+      const firstDayOfWeek = firstDay.getDay();
+      const dayOfMonth = d.getDate();
+      
+      // 월요일을 주의 시작으로 계산
+      const adjustedFirstDay = (firstDayOfWeek === 0) ? 6 : firstDayOfWeek - 1;
+      const weekNumber = Math.ceil((dayOfMonth + adjustedFirstDay) / 7);
+      
+      return weekNumber;
+    }
+    
+    function formatWeekLabel(date) {
+      const d = new Date(date);
+      const month = d.getMonth() + 1;
+      const week = getWeekOfMonth(d);
+      return `${month}월 ${week}주차`;
+    }
+    
+    // ---------- 주별 차트 생성 ----------
+    function createWeeklyChart(countryName) {
+      if(!currentData || !countryName) {
+        document.getElementById('weeklyChart').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">국가를 선택하세요.</div>';
+        return;
+      }
+      
+      const {Country, allDates, trafficByDate} = currentData;
+      const countryIndex = Country.indexOf(countryName);
+      
+      if(countryIndex === -1) {
+        document.getElementById('weeklyChart').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">해당 국가의 데이터를 찾을 수 없습니다.</div>';
+        return;
+      }
+      
+      // 1월~3월 데이터만 필터링
+      const filteredDates = allDates.filter(date => {
+        const d = new Date(date);
+        const month = d.getMonth() + 1;
+        return month >= 1 && month <= 3;
+      });
+      
+      if(filteredDates.length === 0) {
+        document.getElementById('weeklyChart').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">1월~3월 데이터가 없습니다.</div>';
+        return;
+      }
+      
+      // 주차별로 그룹화 (년도-월-주차)
+      const weekData = {};
+      filteredDates.forEach(date => {
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const week = getWeekOfMonth(d);
+        const weekKey = `${year}-${String(month).padStart(2,'0')}-W${week}`;
+        const weekLabel = `${month}월 ${week}주차`;
+        
+        if(!weekData[weekKey]) {
+          weekData[weekKey] = {
+            label: weekLabel,
+            values: [],
+            dates: []
+          };
+        }
+        
+        const traffic = trafficByDate[date] && trafficByDate[date][countryIndex] !== undefined 
+          ? trafficByDate[date][countryIndex] 
+          : 0;
+        
+        if(traffic > 0) {
+          weekData[weekKey].values.push(traffic);
+          weekData[weekKey].dates.push(date);
+        }
+      });
+      
+      // 주차별 평균 계산 및 정렬
+      const weekLabels = [];
+      const weekAverages = [];
+      const weekMin = [];
+      const weekMax = [];
+      const weekColors = []; // 색상 배열
+      const weekChanges = []; // 변화율 배열
+      
+      Object.keys(weekData).sort().forEach((weekKey, idx) => {
+        const data = weekData[weekKey];
+        if(data.values.length > 0) {
+          const avg = data.values.reduce((a, b) => a + b, 0) / data.values.length;
+          weekLabels.push(data.label);
+          weekAverages.push(avg);
+          weekMin.push(Math.min(...data.values));
+          weekMax.push(Math.max(...data.values));
+          
+          // 이전 주차와 비교하여 색상 결정
+          if(idx === 0) {
+            weekColors.push('#414554'); // 첫 주차는 중립 색상
+            weekChanges.push(0);
+          } else {
+            const prevAvg = weekAverages[idx - 1];
+            const change = prevAvg > 0 ? ((avg - prevAvg) / prevAvg) * 100 : 0;
+            weekChanges.push(change);
+            
+            if(change > 0) {
+              weekColors.push('#238636'); // 증가: 초록색
+            } else if(change < 0) {
+              weekColors.push('#f85149'); // 감소: 빨간색
+            } else {
+              weekColors.push('#414554'); // 변화 없음: 중립 색상
+            }
+          }
+        }
+      });
+      
+      if(weekLabels.length === 0) {
+        document.getElementById('weeklyChart').innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">주별 데이터가 없습니다.</div>';
+        return;
+      }
+      
+      // 라인 색상도 동적으로 설정 (세그먼트별)
+      const lineColors = [];
+      for(let i = 0; i < weekAverages.length; i++) {
+        if(i === 0) {
+          lineColors.push('#414554');
+        } else {
+          lineColors.push(weekColors[i]);
+        }
+      }
+      
+      // Plotly 차트 생성 (바이낸스 스타일)
+      const trace = {
+        x: weekLabels,
+        y: weekAverages,
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: '주별 평균',
+        line: { 
+          color: '#414554', 
+          width: 3,
+          shape: 'linear'
+        },
+        marker: { 
+          size: 12, 
+          color: weekColors,
+          line: { width: 2, color: '#161b22' }
+        },
+        hovertemplate: '<b>%{x}</b><br>평균: %{y:,.0f}<br>변화: %{customdata:.2f}%<extra></extra>',
+        customdata: weekChanges
+      };
+      
+      // 라인을 세그먼트별로 그리기 (색상 변화를 위해)
+      const traces = [];
+      for(let i = 0; i < weekAverages.length - 1; i++) {
+        const lineColor = weekColors[i + 1];
+        traces.push({
+          x: [weekLabels[i], weekLabels[i + 1]],
+          y: [weekAverages[i], weekAverages[i + 1]],
+          type: 'scatter',
+          mode: 'lines',
+          name: i === 0 ? '주별 평균' : '',
+          line: { color: lineColor, width: 3 },
+          showlegend: false,
+          hoverinfo: 'skip'
+        });
+      }
+      
+      // 마커만 있는 트레이스 추가
+      traces.push({
+        x: weekLabels,
+        y: weekAverages,
+        type: 'scatter',
+        mode: 'markers',
+        name: '주별 평균',
+        marker: { 
+          size: 12, 
+          color: weekColors,
+          line: { width: 2, color: '#161b22' }
+        },
+        hovertemplate: '<b>%{x}</b><br>평균: %{y:,.0f}<br>변화: %{customdata:.2f}%<extra></extra>',
+        customdata: weekChanges
+      });
+      
+      // 범위 영역 (최소~최대)
+      const traceRange = {
+        x: weekLabels,
+        y: weekMax,
+        type: 'scatter',
+        mode: 'lines',
+        name: '범위',
+        line: { color: 'transparent', width: 0 },
+        showlegend: false,
+        hoverinfo: 'skip',
+        fill: 'tonexty',
+        fillcolor: 'rgba(46, 160, 67, 0.1)'
+      };
+      
+      const traceMin = {
+        x: weekLabels,
+        y: weekMin,
+        type: 'scatter',
+        mode: 'lines',
+        name: '최소값',
+        line: { color: '#8b949e', width: 1, dash: 'dot' },
+        hovertemplate: '<b>%{x}</b><br>최소: %{y:,.0f}<extra></extra>'
+      };
+      
+      const traceMax = {
+        x: weekLabels,
+        y: weekMax,
+        type: 'scatter',
+        mode: 'lines',
+        name: '최대값',
+        line: { color: '#8b949e', width: 1, dash: 'dot' },
+        hovertemplate: '<b>%{x}</b><br>최대: %{y:,.0f}<extra></extra>'
+      };
+      
+      const layout = {
+        paper_bgcolor: '#161b22',
+        plot_bgcolor: '#161b22',
+        font: { color: '#fff', family: 'Arial, Helvetica, sans-serif', size: 12 },
+        xaxis: {
+          title: { text: '주차', font: { size: 14 } },
+          gridcolor: '#30363d',
+          showgrid: true,
+          tickangle: -45
+        },
+        yaxis: {
+          title: { text: 'Traffic', font: { size: 14 } },
+          gridcolor: '#30363d',
+          showgrid: true
+        },
+        hovermode: 'x unified',
+        legend: {
+          bgcolor: 'rgba(0,0,0,0)',
+          bordercolor: '#30363d',
+          borderwidth: 1,
+          x: 0.02,
+          y: 0.98,
+          xanchor: 'left',
+          yanchor: 'top'
+        },
+        margin: { l: 70, r: 30, t: 50, b: 80 },
+        height: 600,
+        title: {
+          text: `${countryName} - 주별 트래픽 평균 (1월~3월)`,
+          font: { size: 16, color: '#fff' },
+          x: 0.5
+        }
+      };
+      
+      Plotly.newPlot('weeklyChart', [traceRange, traceMin, traceMax, ...traces], layout, {responsive: true});
+    }
+    
+    // ---------- 국가 선택 드롭다운 업데이트 ----------
+    function updateCountrySelect() {
+      if(!currentData) return;
+      
+      const select = document.getElementById('countrySelect');
+      const countries = currentData.Country || [];
+      
+      // 기존 옵션 제거 (첫 번째 옵션 제외)
+      while(select.options.length > 1) {
+        select.remove(1);
+      }
+      
+      // 국가 추가
+      countries.sort().forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        select.appendChild(option);
+      });
+    }
+    
+    // 국가 선택 이벤트
+    document.getElementById('countrySelect').addEventListener('change', (e) => {
+      createWeeklyChart(e.target.value);
+    });
+    
     // initial draw
     window.addEventListener('load',()=>{
       const t=overlay?.querySelector('.loading-text'); if(t) t.textContent='샘플 데이터로 초기화 중...';
-      setTimeout(()=> createTreemap(currentData), 120);
+      setTimeout(()=> {
+        createTreemap(currentData);
+        updateCountrySelect();
+      }, 120);
     });
     </script>
 </body>
