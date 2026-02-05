@@ -1906,5 +1906,17 @@
     "category_group": null,
     "traffic_impact": null,
     "api_source": null
+  },
+  "f35c994f0c4f2e02": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "e38436bba8ae96ee": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
   }
 }
