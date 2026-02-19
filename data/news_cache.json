@@ -2290,5 +2290,17 @@
     "category_group": null,
     "traffic_impact": null,
     "api_source": null
+  },
+  "07c85a8df43f2841": {
+    "category": "competitor_game",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "0703283a209badf5": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
   }
 }
