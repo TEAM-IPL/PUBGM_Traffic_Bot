@@ -2302,5 +2302,29 @@
     "category_group": null,
     "traffic_impact": null,
     "api_source": null
+  },
+  "c1c61dacf169e99d": {
+    "category": "competitor_game",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "310856caed0a0b7e": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "4cb44d6f5c4208ae": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "a6bfec312d03d4d3": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
   }
 }
