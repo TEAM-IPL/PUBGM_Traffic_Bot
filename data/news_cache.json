@@ -15040,5 +15040,23 @@
     "category_group": null,
     "traffic_impact": null,
     "api_source": null
+  },
+  "4d07afe20416353d": {
+    "category": "competitor_game",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "f3bbf5fc5f847d3d": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
+  },
+  "89ca3721a3121167": {
+    "category": "gaming",
+    "category_group": null,
+    "traffic_impact": null,
+    "api_source": null
   }
 }
